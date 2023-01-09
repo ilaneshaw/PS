@@ -113,3 +113,109 @@ Describe any anticipated linkages to other modules, such as modules that supply 
 ### Getting help
 
 -   provide a way for people to obtain help (e.g., module repository issues page)
+
+# Example of code to run module
+
+```{r moduleRun}
+
+library(SpaDES.core)
+library(googledrive)
+
+#parameters from Drive
+birdList <- sort(c("RUBL", "CAWA", "OSFL"))
+folderUrlBirdRaster <- "https://drive.google.com/drive/folders/11HdfTqNhHmzJ8Qk0Pk0NfiLKwyRkrltS" 
+rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
+nameBCR <- "60"
+
+### STUDY AREA AB
+studyAreaLocation <- file.path("https://drive.google.com/file/d/1iYXdXFcZex304o5voX6igFm5EC0ck1Bp/view?usp=sharing")
+#specify file name
+.studyAreaName <- "studyAreaAB.shp" #specify file name
+ #specify folder url
+archiveStudyArea <- "studyAreaAB.zip" #give archive name
+#specify forest class raster details
+nameForClassRaster <- "vegTypesRas_ABNew_0722.tif"
+folderUrlForClass <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+#give archive name
+archiveForClass <- "AB_rasters_kNN_2022.07.zip"
+#specify non forest raster details
+#specify file name
+nameNonForRaster <- "nonForestRas_ABNew_0722.tif"
+folderUrlNonFor  <-  "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+#give archive name
+archiveNonFor  <- "AB_rasters_kNN_2022.07.zip"
+#specify age raster details
+#specify file name
+nameAgeRaster <- "ageRas_ABNew_0722.tif"
+folderUrlAge  <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+#give archive name
+archiveAge  <- "AB_rasters_kNN_2022.07.zip"
+
+
+# #parameters from local
+# birdList <- sort(c("RUBL", "CAWA", "OSFL"))
+# rasterToMatchLocation <- file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif")
+# studyAreaLocation <- file.path("C:/Users/RALAS6/Documents/Repositories/Data/.shp")
+# nameBCR <- "60"
+# bootRastersLocation <- file.path("../Data/bootBirdRasters")
+
+
+
+
+simModules <- list("PS")
+
+## Set simulation and module parameters
+simTimes <- list(start = 1, end = 1, timeunit = "year")
+simParams <- list(
+    PS = list(simulationTimeStep = 1, 
+               .plotInitialTime = 1,
+               fromDrive = TRUE,
+               classOnly = FALSE,
+               nTrees = 20,
+               ageGrouping = 10,
+               maxAgeClass = 15,
+               birdList = birdList,
+               folderUrlBirdRaster = folderUrlBirdRaster,
+               .studyAreaName = .studyAreaName,
+               archiveStudyArea = archiveStudyArea,
+               rasterToMatchLocation = rasterToMatchLocation,
+               studyAreaLocation = studyAreaLocation,
+               nameBCR = nameBCR,
+               nameForClassRaster = nameForClassRaster,
+               folderUrlForClass = folderUrlForClass,
+               archiveForClass = archiveForClass,
+               nameNonForRaster = nameNonForRaster,
+               folderUrlNonFor = folderUrlNonFor,
+               archiveNonFor = archiveNonFor,
+               nameAgeRaster = nameAgeRaster,
+               folderUrlAge = folderUrlAge,
+               archiveAge = archiveAge
+               )
+)
+
+## make a list of directory paths
+inputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/inputs", create = TRUE)
+outputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/outputs", create = TRUE)
+downloadFolderArea <- checkPath(file.path(inputsDir, "studyArea"), create = TRUE)
+inputBootBirdRasters <- checkPath(file.path(inputsDir, "bootBirdRasters"), create = TRUE)
+outputMeanBirdRasters <- checkPath(file.path(outputsDir, "birdRasters"), create = TRUE)
+downloadFolderForestClass <- checkPath(file.path(inputsDir, "forestClassRasters"), create = TRUE)
+downloadFolderBird <- checkPath(file.path(inputsDir, "birdRasterFiles"), create = TRUE)
+outputFolderBirdPreds <- checkPath(file.path(outputsDir, "outputBirdPreds"), create = TRUE)
+outputFolderBirdPredsRasters <- checkPath(file.path(outputsDir, "outputBirdPredsRasters"), create = TRUE)
+setPaths(modulePath = file.path("C:/Users/RALAS6/Documents/Repositories/SpaDES/modules"),
+         cachePath = file.path("C:/Users/RALAS6/Documents/Repositories/SpaDES/cache"),
+         scratchPath = file.path("C:/Users/RALAS6/Documents/Repositories/SpaDES/scratch"),
+         inputPath = inputsDir,
+         outputPath = outputsDir)
+
+
+simPaths <- getPaths()
+
+## Simulation setup
+mySim <- simInit(times = simTimes, params = simParams, 
+                 modules = simModules, paths = simPaths)
+
+
+
+```
