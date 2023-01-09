@@ -167,8 +167,9 @@ simModules <- list("PS")
 ## Set simulation and module parameters
 simTimes <- list(start = 1, end = 1, timeunit = "year")
 simParams <- list(
-    PS = list(simulationTimeStep = 1, 
+    PS = list( getPredsInitialTime = 1,
                .plotInitialTime = 1,
+               .saveInitialTime = 1,
                fromDrive = TRUE,
                classOnly = FALSE,
                nTrees = 20,
@@ -216,6 +217,6 @@ simPaths <- getPaths()
 mySim <- simInit(times = simTimes, params = simParams, 
                  modules = simModules, paths = simPaths)
 
-
+test <- spades(mySim)
 
 ```

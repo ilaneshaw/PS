@@ -23,6 +23,10 @@ defineModule(sim, list(
                     "Used by Plots function, which can be optionally used here"),
     defineParameter(".plotInitialTime", "numeric", start(sim), NA, NA,
                     "Describes the simulation time at which the first plot event should occur."),
+    defineParameter("getPredsInitialTime", "numeric", start(sim), NA, NA,
+                    "Describes the simulation time at which the first plot event should occur."),
+    defineParameter("getPredsInterval", "numeric", NA, NA, NA,
+                    "Describes the simulation time interval between getPreds events."),
     defineParameter(".plotInterval", "numeric", NA, NA, NA,
                     "Describes the simulation time interval between plot events."),
     defineParameter(".saveInitialTime", "numeric", NA, NA, NA,
@@ -100,9 +104,12 @@ doEvent.PS = function(sim, eventTime, eventType) {
       sim <- Init(sim)
 
       # schedule future event(s)
-      sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "PS", "event1")
+      sim <- scheduleEvent(sim, eventTime = P(sim)$getPredsInitialTime, 
+                           moduleName = "PS", eventType = "getBirdPreds") 
+      browser()
       sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "PS", "plot")
       sim <- scheduleEvent(sim, P(sim)$.saveInitialTime, "PS", "save")
+      
     },
     plot = {
       # ! ----- EDIT BELOW ----- ! #
@@ -130,17 +137,18 @@ doEvent.PS = function(sim, eventTime, eventType) {
 
       # ! ----- STOP EDITING ----- ! #
     },
-    event1 = {
+    getBirdPreds = {
       # ! ----- EDIT BELOW ----- ! #
       # do stuff for this event
-
+      sim <- getBirdPreds(sim)
       # e.g., call your custom functions/methods here
       # you can define your own methods below this `doEvent` function
 
       # schedule future event(s)
 
       # e.g.,
-      # sim <- scheduleEvent(sim, time(sim) + increment, "PS", "templateEvent")
+      sim <- scheduleEvent(sim, eventTime = time(sim) + P(sim)$getPredsInterval, 
+                           moduleName = "PS", eventType = "getBirdPreds") 
 
       # ! ----- STOP EDITING ----- ! #
     },
@@ -198,7 +206,7 @@ plotFun <- function(sim) {
 }
 
 ### template for your event1
-Event1 <- function(sim) {
+getBirdPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
   # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
   # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
@@ -212,7 +220,7 @@ Event1 <- function(sim) {
   
   sim$birdDatasets <- lapply(X = P(sim)$birdList, FUN = function(bird){
     
-    birdLayer <- eval(parse(text=paste("birdRasters$", bird, sep = "")))
+    birdLayer <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
     landBirdRasterStack <- raster::addLayer(birdLayer, sim$landscapeRasters)
     
     
