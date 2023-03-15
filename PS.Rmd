@@ -122,8 +122,8 @@ library(SpaDES.core)
 library(googledrive)
 
 #parameters from Drive
-birdList <- sort(c("RUBL", "CAWA", "OSFL"))
-folderUrlBirdRaster <- "https://drive.google.com/drive/folders/11HdfTqNhHmzJ8Qk0Pk0NfiLKwyRkrltS" 
+birdList <- sort(c("RUBL", "CAWA", "OSFL", "OVEN"))
+folderUrlBirdRaster <- "" 
 rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
 nameBCR <- "60"
 
@@ -167,7 +167,7 @@ simModules <- list("PS")
 ## Set simulation and module parameters
 simTimes <- list(start = 1, end = 1, timeunit = "year")
 simParams <- list(
-    PS = list( getPredsInitialTime = 1,
+    PS = list( doPredsInitialTime = 1,
                .plotInitialTime = 1,
                .saveInitialTime = 1,
                fromDrive = TRUE,
