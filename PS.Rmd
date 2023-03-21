@@ -118,13 +118,15 @@ Describe any anticipated linkages to other modules, such as modules that supply 
 
 ```{r moduleRun}
 
-library(SpaDES.core)
-library(googledrive)
+library("conflicted")
+library("SpaDES.core")
+library("googledrive")
 
 #parameters from Drive
-birdList <- sort(c("RUBL", "CAWA", "OSFL", "OVEN"))
+birdList <- sort(c("BARS", "CAWA", "OVEN"))
 folderUrlBirdRaster <- "" 
 rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
+rasterToMatchName <- "LCC2005_V1_4a.tif"
 nameBCR <- "60"
 
 ### STUDY AREA AB
@@ -180,6 +182,7 @@ simParams <- list(
                .studyAreaName = .studyAreaName,
                archiveStudyArea = archiveStudyArea,
                rasterToMatchLocation = rasterToMatchLocation,
+               rasterToMatchName = rasterToMatchName,
                studyAreaLocation = studyAreaLocation,
                nameBCR = nameBCR,
                nameForClassRaster = nameForClassRaster,

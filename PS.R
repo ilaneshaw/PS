@@ -50,6 +50,8 @@ defineModule(sim, list(
                     "a list of bird species in the format of 4-letter bird codes"),
     defineParameter("rasterToMatchLocation", "character", NA, NA, NA,
                     "the file location of the rasterToMatch"),
+    defineParameter("rasterToMatchName", "character", NA, NA, NA,
+                    "the name of the rasterToMatch file"),
     defineParameter("studyAreaLocation", "character", NA, NA, NA,
                     "the file location of the studyArea"),
     defineParameter("nameBCR", "character", NA, NA, NA,
@@ -585,7 +587,7 @@ assess1D <- function(sim) {
   #as tif files
   
   
-  lapply(X = birdList, FUN = function(bird){
+  lapply(X = P(sim)$birdList, FUN = function(bird){
     raster <- eval(parse(text=paste("sim$for1DAndNf1DMaps$", bird, sep = "")))
     names(raster) <- paste(bird)
     terra::writeRaster(x = raster, 
@@ -610,7 +612,7 @@ do2DPreds <- function(sim) {
   
   
   #get 2D bird predictions (by forest and age class)
-  sim$birdMatricies <- lapply(X = sim$birdDatasets, FUN = function(birdDF) {
+  birdGBM <- lapply(X = sim$birdDatasets, FUN = function(birdDF) {
     
     #keep track of how long each bird takes
     #print(Sys.time()) 
@@ -641,27 +643,33 @@ do2DPreds <- function(sim) {
                           bag.fraction = .80, 
                           train.fraction = 1) #same number of trees as used in predict.gbm
     
-    # #print summary of relative influence by the factors
-    # par(mar = c(5, 8, 1, 1))
-    # relInfGBM <- summary(gbmFitted, method = relative.influence)
-    # relInfGBM
+    #print summary of relative influence by the factors
+    #par(mar = c(5, 8, 1, 1))
+    relInfGBM <- summary(gbmFitted)
+    #relInfGBM
     # print(relInfGBM)
     # 
-    # #get Freidman's h-stat
-    # FriedmansHStat <- gbm::interact.gbm(gbmFitted, 
-    #                                     data = forestedDF, 
-    #                                     i.var = c(1,2), 
-    #                                     n.trees = P(sim)$nTrees)
+    #get Freidman's h-stat
+    FriedmansHStat <- gbm::interact.gbm(gbmFitted,
+                                        data = forestedDF,
+                                        i.var = c(1,2),
+                                        n.trees = P(sim)$nTrees)
     # print(FriedmansHStat)
     # 
     # #check gbm plot
     # # plotGBM <- gbm::plot.gbm(gbmFitted, i.var = c(1,2))
     # # plot(plotGBM)
     # 
-    # #make into single summary object
-    # summaryGBM <- list(relInfGBM, FriedmansHStat) #, plotGBM)
-    # names(summaryGBM) <- c("relInfGBM", "FriedmansHStat") #, "plotGBM")
-   
+    #make into single summary object
+    # statsGBM <- list(relInfGBM, FriedmansHStat) #, plotGBM)
+    # names(statsGBM) <- c("relInfGBM", "FriedmansHStat") #, "plotGBM")
+    relInfForClass <- relInfGBM[relInfGBM$var == 'landForClass',]
+    relInfForClass <- relInfForClass$rel.inf
+    relInfAge <- relInfGBM[relInfGBM$var == 'age',]
+    relInfAge <- relInfAge$rel.inf
+    birdSp <- bird
+    statsGBM <- cbind(birdSp, FriedmansHStat, relInfForClass, relInfAge)
+    
     #generate prediction df using expand
     sim$maxAge <- max(forestedDF$age) #get age of oldest cell listed in forestedDF
     sim$maxAgeClassAge <- P(sim)$maxAgeClass*P(sim)$ageGrouping 
@@ -704,36 +712,43 @@ do2DPreds <- function(sim) {
     matrixName <- paste(bird, "_birdPreds2D.csv")
     write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName)) 
     
-    return(birdMatrix)
-    # matrixAndSummary <- list(birdMatrix, summaryGBM)
-    # names(matrixAndSummary) <- c("birdMatricies", "summaryGBM")
-    # 
-    # return(matrixAndSummary)
+    #return(birdMatrix)
+    matrixAndSummary <- list(birdMatrix, statsGBM)
+    names(matrixAndSummary) <- c("birdMatricies", "statsGBM")
+     
+    return(matrixAndSummary)
     
   })
-  browser()
-  # # save(birdMatriciesAndSummaries, 
-  # #      file =  file.path(outputFolderBirdPreds, "birdMatriciesAndSummaries.Rdata"))
-  # #load(file.path(outputFolderBirdPreds, "birdMatriciesAndSummaries.Rdata"))
  
-  # #separate matricies from summaries
-  # print("separate out matricies")
-  # sim$birdMatricies <- lapply(X = birdList, FUN = function(bird) {
-  #   
-  #   print(bird)
-  #   birdName <- getElement(bird)
-  #   birdMatrix <-  eval(parse(text=paste("sim$birdMatriciesAndSummaries$", birdName, "$birdMatricies", sep = "")))
-  #   
-  #   matrixName <- paste(bird, "_matrix.csv")
-  #   write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName)) 
-  #   
-  #   return(birdMatrix)
-  # })
+  names(birdGBM) <- P(sim)$birdList
+  
+  #separate matricies from summaries
+  print("separate out matricies")
+  
+  sim$birdMatricies <- lapply(X = birdList, FUN = function(bird) {
+
+    print(bird)
+    birdMatrix <-  eval(parse(text=paste("birdGBM$", bird, "$birdMatricies", sep = "")))
+
+    matrixName <- paste(bird, "_matrix.csv")
+    write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName))
+
+    return(birdMatrix)
+  })
   
   names(sim$birdMatricies) <- P(sim)$birdList
-  # save(birdMatricies, 
-  #      file =  file.path(outputFolderBirdPreds, "birdMatricies.Rdata"))  
-  # #load(file.path(outputFolderBirdPreds, "birdMatricies.Rdata"))
+  
+  #make table of all GBM Stats
+  print("make table of GBM stats")
+  statsList <- lapply(X = birdList, FUN = function(bird) {
+    
+    print(bird)
+    GBMStats <-  as.data.table(eval(parse(text=paste("birdGBM$", bird, "$statsGBM", sep = ""))))
+    return(GBMStats)
+  })
+  
+  sim$statsGBM <- rbindlist(statsList)
+  write.csv(sim$statsGBM, file =  file.path(outputFolderBirdPreds, "statsGBM"))
   
   
   
@@ -770,12 +785,14 @@ assess2D <- function(sim) {
   # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
   # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
   # sim$event1Test2 <- 999 # for dummy unit test
- browser()
+
+ 
+  
   #create birdStats2D (MODULE OUTPUT), a list of lists giving a birdStats2D data table and vector classesNotPresent for each bird species on the birdList.
   print("get birdStats2D")
   
   sim$birdStats2D <- lapply(X = P(sim)$birdList, FUN = function(bird) {
-    browser()
+    
     print(bird)
     forestedDT <-  as.data.table(eval(parse(text=paste("sim$birdDatasets$", bird, sep = "")))) 
     #separate out data table rows that are forested from the raw birdDataset 
@@ -887,27 +904,26 @@ assess2D <- function(sim) {
   sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
   print(sim$ageClassRaster)
   
-  clearPlot()
-  Plot(sim$ageClassRaster, na.color = "grey")
-  
-  #get for2Dmaps
+ 
+    #get for2Dmaps
   print("get for2DMaps")
-  for2DMaps <- lapply(X = birdList, FUN = function(bird){
-    browser()
+  sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
     print(bird)
     # check that spatial extent is the same for ageClassraster and forClassraster
-    extent(forClassRaster) == extent(sim$ageClassRaster)
+    print("extent of forClassRaster same as ageClassRaster?")
+    terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster)
     
     #reform matrix
     matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
-    reclassTab2D <- melt(matrix)
+    reclassTab2D <- reshape2::melt(matrix)
     colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
     
     #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
-    raster2DBins <- terra::rast(forClassRaster); raster2DBins[] = NA #make an empty NA raster the same as forClassRaster
+    raster2DBins <- terra::rast(sim$forClassRaster); raster2DBins[] = NA #make an empty NA raster the same as forClassRaster
     
     #make dataframe of all the data in forClassRaster and ageClassRaster and give each cell/row a new definition column, birdDensityPred, from reclassTab2d
-    f = data.frame(forClass=forClassRaster[], ageClass=ageClassRaster[])
+    f = data.frame(forClass=sim$forClassRaster[], ageClass=sim$ageClassRaster[])
     vec = c(1:nrow(f))
     f[,3] = vec
     m = merge(f, reclassTab2D, all.x=TRUE)
@@ -920,21 +936,68 @@ assess2D <- function(sim) {
     
     #check the new raster
     raster2DBins
-    #plot(raster2DBins) 
     
     print(paste(bird,"for 2D map raster complete"))
     
     return(raster2DBins)
   })
   
-  names(for2DMaps) <- P(sim)$birdList
+  names(sim$for2DMaps) <- P(sim)$birdList
   
   #as Rdata file
   
-  save(for2DMaps,
-       file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
-  # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
-  sim$for2DMaps <- for2DMaps
+  # save(for2DMaps,
+  #      file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+  # # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+  # sim$for2DMaps <- for2DMaps
+  
+  # get 2D map with NF areas filled in with 1D predictions
+  print("get for2DAndNf1DMaps")
+  
+  sim$for2DAndNf1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    print(bird)
+    raster1DBins <- eval(parse(text=paste("sim$nf1DMaps$", bird, sep = "")))
+    raster2DBins <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
+    
+    birdPredsRaster <- terra::cover(x = raster2DBins,
+                             y = raster1DBins) 
+    
+    names(birdPredsRaster) <- paste(bird)
+    
+    #birdPredsRaster #visually check Raster
+    #plot(birdPredsRaster)
+    
+    # writeRaster(x = birdPredsRaster, filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-birdPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
+    
+    print(paste(bird,"for 2D and nf 1D map raster complete"))
+    return(birdPredsRaster)
+  })
+  
+  names(sim$for2DAndNf1DMaps) <- birdList
+  
+  print("save for2DAndNf1DMaps")
+  
+  #as Rdata file
+  
+  # save(for2DAndNf1DMaps,
+  #      file =  file.path(outputFolderBirdPredsRasters, "for2DAndNf1DMaps.Rdata"))
+  # #load(file.path(outputFolderBirdPredsRasters, "for2DAndNf1DMaps.Rdata"))
+  # 
+  #as tif files
+  
+  
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    raster <- eval(parse(text=paste("sim$for2DAndNf1DMaps$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    writeRaster(x = raster, filename = file.path(outputFolderBirdPredsRasters,
+                                                 paste(bird, "-for2DAndNf1DMap", sep = "")),
+                format = "GTiff",
+                overwrite = TRUE)
+    
+  })
+  
   
   
   # ! ----- STOP EDITING ----- ! #
@@ -970,8 +1033,8 @@ assess2D <- function(sim) {
       file = P(sim)$rasterToMatchLocation,
       overwrite = TRUE,
       verbose = TRUE,
-      path = file.path(inputsDir, "LCC2005_V1_4a.tif")) #download rasterTomatch from drive
-    sim$rasterToMatch <- terra::rast(file.path(inputsDir, "LCC2005_V1_4a.tif")) #load raster into R
+      path = file.path(inputsDir, P(sim)$rasterToMatchName)) #download rasterTomatch from drive
+    sim$rasterToMatch <- terra::rast(file.path(inputsDir, P(sim)$rasterToMatchName)) #load raster into R
     
     # get studyArea shapefile
     print("get studyArea shapefile from drive")
@@ -1111,7 +1174,7 @@ assess2D <- function(sim) {
 
                      )
                    }
-                   
+                  
                    ## otherwise, if it is already present and downloaded, just get the name of the item
                    return(terra::rast(file.path(downloadFolderBird, nameBird)))
                  }
@@ -1120,7 +1183,7 @@ assess2D <- function(sim) {
              #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
              X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
              names(sim$birdRasters) <- X
-
+            
            sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
              ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
 
@@ -1130,7 +1193,7 @@ assess2D <- function(sim) {
                                       useTerra = TRUE,
                                       fun = "terra::rast",
                                       destinationPath = downloadFolderBird,
-                                      filename2 = paste(names(RasterLayer), ".tif", sep = ""),
+                                      filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
                                       overwrite = TRUE,
                                       verbose = TRUE)
              # clearPlot()
