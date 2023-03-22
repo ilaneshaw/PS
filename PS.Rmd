@@ -122,81 +122,6 @@ library("conflicted")
 library("SpaDES.core")
 library("googledrive")
 
-#parameters from Drive
-birdList <- sort(c("BARS", "CAWA", "OVEN"))
-folderUrlBirdRaster <- "" 
-rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
-rasterToMatchName <- "LCC2005_V1_4a.tif"
-nameBCR <- "60"
-
-### STUDY AREA AB
-studyAreaLocation <- file.path("https://drive.google.com/file/d/1iYXdXFcZex304o5voX6igFm5EC0ck1Bp/view?usp=sharing")
-#specify file name
-.studyAreaName <- "studyAreaAB.shp" #specify file name
- #specify folder url
-archiveStudyArea <- "studyAreaAB.zip" #give archive name
-#specify forest class raster details
-nameForClassRaster <- "vegTypesRas_ABNew_0722.tif"
-folderUrlForClass <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
-#give archive name
-archiveForClass <- "AB_rasters_kNN_2022.07.zip"
-#specify non forest raster details
-#specify file name
-nameNonForRaster <- "nonForestRas_ABNew_0722.tif"
-folderUrlNonFor  <-  "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
-#give archive name
-archiveNonFor  <- "AB_rasters_kNN_2022.07.zip"
-#specify age raster details
-#specify file name
-nameAgeRaster <- "ageRas_ABNew_0722.tif"
-folderUrlAge  <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
-#give archive name
-archiveAge  <- "AB_rasters_kNN_2022.07.zip"
-
-
-# #parameters from local
-# birdList <- sort(c("RUBL", "CAWA", "OSFL"))
-# rasterToMatchLocation <- file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif")
-# studyAreaLocation <- file.path("C:/Users/RALAS6/Documents/Repositories/Data/.shp")
-# nameBCR <- "60"
-# bootRastersLocation <- file.path("../Data/bootBirdRasters")
-
-
-
-
-simModules <- list("PS")
-
-## Set simulation and module parameters
-simTimes <- list(start = 1, end = 1, timeunit = "year")
-simParams <- list(
-    PS = list( doPredsInitialTime = 1,
-               .plotInitialTime = 1,
-               .saveInitialTime = 1,
-               fromDrive = TRUE,
-               classOnly = FALSE,
-               nTrees = 20,
-               ageGrouping = 10,
-               maxAgeClass = 15,
-               birdList = birdList,
-               folderUrlBirdRaster = folderUrlBirdRaster,
-               .studyAreaName = .studyAreaName,
-               archiveStudyArea = archiveStudyArea,
-               rasterToMatchLocation = rasterToMatchLocation,
-               rasterToMatchName = rasterToMatchName,
-               studyAreaLocation = studyAreaLocation,
-               nameBCR = nameBCR,
-               nameForClassRaster = nameForClassRaster,
-               folderUrlForClass = folderUrlForClass,
-               archiveForClass = archiveForClass,
-               nameNonForRaster = nameNonForRaster,
-               folderUrlNonFor = folderUrlNonFor,
-               archiveNonFor = archiveNonFor,
-               nameAgeRaster = nameAgeRaster,
-               folderUrlAge = folderUrlAge,
-               archiveAge = archiveAge
-               )
-)
-
 ## make a list of directory paths
 inputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/inputs", create = TRUE)
 outputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/outputs", create = TRUE)
@@ -213,8 +138,93 @@ setPaths(modulePath = file.path("C:/Users/RALAS6/Documents/Repositories/SpaDES/m
          inputPath = inputsDir,
          outputPath = outputsDir)
 
-
 simPaths <- getPaths()
+
+# #parameters from Drive
+# birdList <- sort(c("BARS", "CAWA", "OVEN"))
+# folderUrlBirdRaster <- "" 
+# rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
+# rasterToMatchName <- "LCC2005_V1_4a.tif"
+# nameBCR <- "60"
+# 
+# ### STUDY AREA AB
+# studyAreaLocation <- file.path("https://drive.google.com/file/d/1iYXdXFcZex304o5voX6igFm5EC0ck1Bp/view?usp=sharing")
+# #specify file name
+# .studyAreaName <- "studyAreaAB.shp" #specify file name
+#  #specify folder url
+# archiveStudyArea <- "studyAreaAB.zip" #give archive name
+# #specify forest class raster details
+# nameForClassRaster <- "vegTypesRas_ABNew_0722.tif"
+# folderUrlForClass <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+# #give archive name
+# archiveForClass <- "AB_rasters_kNN_2022.07.zip"
+# #specify non forest raster details
+# #specify file name
+# nameNonForRaster <- "nonForestRas_ABNew_0722.tif"
+# folderUrlNonFor  <-  "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+# #give archive name
+# archiveNonFor  <- "AB_rasters_kNN_2022.07.zip"
+# #specify age raster details
+# #specify file name
+# nameAgeRaster <- "ageRas_ABNew_0722.tif"
+# folderUrlAge  <- "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+# #give archive name
+# archiveAge  <- "AB_rasters_kNN_2022.07.zip"
+
+
+#parameters from local
+birdList <- sort(c("BARS", "CAWA", "OVEN"))
+rasterToMatchLocation <- inputsDir
+rasterToMatchName <- "LCC2005_V1_4a.tif"
+studyAreaLocation <- downloadFolderArea
+nameBCR <- "60"
+.studyAreaName <- "studyAreaAB.shp"
+nameForClassRaster <-  "vegTypesRas_ABNew_0722.tif"
+folderUrlForClass = downloadFolderForestClass
+nameNonForRaster = "nonForestRas_ABNew_0722.tif"
+folderUrlNonFor = downloadFolderForestClass
+nameAgeRaster = "ageRas_ABNew_0722.tif"
+folderUrlAge = downloadFolderForestClass
+folderUrlBirdRaster <- downloadFolderBird
+
+
+
+
+
+simModules <- list("PS")
+
+## Set simulation and module parameters
+simTimes <- list(start = 1, end = 1, timeunit = "year")
+simParams <- list(
+    PS = list( doPredsInitialTime = 1,
+               .plotInitialTime = 1,
+               .saveInitialTime = 1,
+               fromDrive = FALSE,
+               classOnly = FALSE,
+               nTrees = 20,
+               ageGrouping = 20,
+               maxAgeClass = 10,
+               birdList = birdList,
+               #folderUrlBirdRaster = folderUrlBirdRaster,
+               .studyAreaName = .studyAreaName,
+               #archiveStudyArea = archiveStudyArea,
+               rasterToMatchLocation = rasterToMatchLocation,
+               rasterToMatchName = rasterToMatchName,
+               studyAreaLocation = studyAreaLocation,
+               nameBCR = nameBCR,
+               nameForClassRaster = nameForClassRaster,
+               folderUrlForClass = folderUrlForClass,
+               #archiveForClass = archiveForClass,
+               nameNonForRaster = nameNonForRaster,
+               folderUrlNonFor = folderUrlNonFor,
+               #archiveNonFor = archiveNonFor,
+               nameAgeRaster = nameAgeRaster,
+               folderUrlAge = folderUrlAge
+               #archiveAge = archiveAge
+               )
+)
+
+
 
 ## Simulation setup
 mySim <- simInit(times = simTimes, params = simParams, 

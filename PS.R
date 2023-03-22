@@ -1205,18 +1205,18 @@ assess2D <- function(sim) {
   } else {
     
     ### GET FILES FROM LOCAL LOCATION ###
-    browser()
+    
     #get rasterToMatch
     print("get rasterTomatch from local drive")
-    sim$rasterToMatch <- terra::rast(file.path(P(sim)$rasterToMatchLocation))
+    sim$rasterToMatch <- terra::rast(file.path(P(sim)$rasterToMatchLocation, P(sim)$rasterToMatchName))
    
     
     #get StudyArea shapefile
     print("get studyArea shapefile from local drive")
-    sim$studyArea <- terra::vect(file.path(P(sim)$studyAreaLocation))
+    studyArea <- terra::vect(file.path(P(sim)$studyAreaLocation, P(sim)$.studyAreaName))
     
     #postProcess studyArea
-    sim$studyArea <- reproducible::postProcess(sim$studyArea,
+    sim$studyArea <- reproducible::postProcess(studyArea,
                                                destinationPath = downloadFolderArea,
                                                filename2 = "studyArea", 
                                                useTerra = TRUE,
@@ -1228,7 +1228,122 @@ assess2D <- function(sim) {
     #crop and mask rasterToMatch
     sim$rasterToMatch <- terra::mask(terra::crop(sim$rasterToMatch, sim$studyArea), sim$studyArea) 
     names(sim$rasterToMatch) <- "rasterToMatch"
+    
+    
+    # get forest class raster
+    print("get forClassRaster from Drive")
+    sim$forClassRaster <- terra::rast(file.path(P(sim)$folderUrlForClass, P(sim)$nameForClassRaster))
+    sim$forClassRaster <- postProcess(sim$forClassRaster,
+                                      destinationPath = downloadFolderForestClass,
+                                     #use the function raster
+                                     targetCRS = crs(sim$rasterToMatch),
+                                     fun = "terra::rast",
+                                     useTerra = TRUE,
+                                     #use the specified rasterToMatch to reproject to
+                                     rasterToMatch = sim$rasterToMatch,
+                                     #studyArea = sim$studyArea,
+                                     useCache = getOption("reproducible.useCache", TRUE),
+                                     overwrite = TRUE,
+                                     verbose = TRUE)
+    
+    names(sim$forClassRaster) <- c("forClassRaster")
+    
+    sim$forClassRaster[sim$forClassRaster == 0] <- NA
+    
+    # clearPlot()
+    # Plot(sim$forClassRaster, na.color= "grey")
+    
+    #get non forest raster
+    print("get nonForRaster from Drive")
+    nonForRaster <- terra::rast(file.path(P(sim)$folderUrlNonFor, P(sim)$nameNonForRaster))
+    sim$nonForRaster <- postProcess(nonForRaster,
+                               destinationPath = downloadFolderForestClass,
+                               #use the function raster
+                               fun = "terra::rast",
+                               targetCRS = crs(sim$rasterToMatch),
+                               #use the specified rasterToMatch to reproject to
+                               rasterToMatch = sim$rasterToMatch,
+                               useTerra = TRUE,
+                               #studyArea = sim$studyArea,
+                               useCache = getOption("reproducible.useCache", TRUE),
+                               overwrite = TRUE,
+                               verbose = TRUE)
+    
+    #nonForRaster[nonForRaster == 0] <- NA
+    
+    names(sim$nonForRaster) <- c("nonForRaster")
+    sim$nonForRaster <- terra::mask(sim$nonForRaster, sim$forClassRaster, inverse = TRUE)
+    # sim$nonForRaster <- overlay(x = nonForRaster,
+    #                         y = sim$forClassRaster,
+    #                         fun = function(x, y) {
+    #                           x[!is.na(y[])] <- NA
+    #                           return(x)
+    #                         })
+    # clearPlot()
+    # Plot(sim$nonForRaster, na.color= "grey")
+    
+    #get age raster
+    print("get ageRaster from Drive")
+    ageRaster <- terra::rast(file.path(P(sim)$folderUrlAge, P(sim)$nameAgeRaster))
+    sim$ageRaster <- postProcess(ageRaster,
+                                destinationPath = downloadFolderForestClass,
+                                #use the function raster
+                                useTerra = TRUE,
+                                fun = "terra::rast",
+                                #targetCRS = crs(sim$rasterToMatch),
+                                #use the specified rasterToMatch to reproject to
+                                rasterToMatch = sim$rasterToMatch,
+                                #studyArea = sim$studyArea,
+                                useCache = getOption("reproducible.useCache", TRUE),
+                                overwrite = TRUE,
+                                verbose = TRUE)
+    
+    names(sim$ageRaster) <- c("ageRaster")
+    
+    
+    #get bird density rasters
+    
+      ## for each item in turn from rastersForBirdlist the following function is applied:
+    sim$birdRasters <-
+      lapply(
+        X = P(sim)$birdList,
+        FUN = function(bird) {
+         
+          print(bird)
+          bird <- paste(bird, ".tif", sep = "")
+          
+          return(terra::rast(file.path(downloadFolderBird, bird)))
+          
+        }
+      )
+    
+    #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
+    X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+    names(sim$birdRasters) <- X
+    
+    sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
+      ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
+      
+      proRaster <- reproducible::postProcess(RasterLayer,
+                                             #studyArea = sim$studyArea,
+                                             rasterToMatch = sim$rasterToMatch,
+                                             useTerra = TRUE,
+                                             fun = "terra::rast",
+                                             destinationPath = downloadFolderBird,
+                                             filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
+                                             overwrite = TRUE,
+                                             verbose = TRUE)
+      # clearPlot()
+      # Plot(proRaster, na.color= "grey")
+      return(proRaster)
+    })
+    
+    names(sim$birdRasters) <- P(sim)$birdList
+    
+    
   }
+  
+  
   
   #make landscape raster
   print("make landscapeRaster")
