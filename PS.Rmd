@@ -126,8 +126,6 @@ library("googledrive")
 inputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/inputs", create = TRUE)
 outputsDir <- checkPath("C:/Users/RALAS6/Documents/Repositories/SpaDES/outputs", create = TRUE)
 downloadFolderArea <- checkPath(file.path(inputsDir, "studyArea"), create = TRUE)
-inputBootBirdRasters <- checkPath(file.path(inputsDir, "bootBirdRasters"), create = TRUE)
-outputMeanBirdRasters <- checkPath(file.path(outputsDir, "birdRasters"), create = TRUE)
 downloadFolderForestClass <- checkPath(file.path(inputsDir, "forestClassRasters"), create = TRUE)
 downloadFolderBird <- checkPath(file.path(inputsDir, "birdRasterFiles"), create = TRUE)
 outputFolderBirdPreds <- checkPath(file.path(outputsDir, "outputBirdPreds"), create = TRUE)
@@ -143,7 +141,7 @@ simPaths <- getPaths()
 # #parameters from Drive
 # birdList <- sort(c("BARS", "CAWA", "OVEN"))
 # folderUrlBirdRaster <- "" 
-# rasterToMatchLocation <- as_id("https://drive.google.com/file/d/16dcxyFJEfqAnhnR5n6723QSzN9uKxD0r/view?usp=share_link")
+# rasterToMatchLocation <- as_id("https://drive.google.com/file/d/1dprb9sQZAUP6ty4BOQMbFf4gSiHKnvqp/view?usp=share_link")
 # rasterToMatchName <- "LCC2005_V1_4a.tif"
 # nameBCR <- "60"
 # 
@@ -173,7 +171,8 @@ simPaths <- getPaths()
 
 
 #parameters from local
-birdList <- sort(c("BARS", "CAWA", "OVEN"))
+#birdList <- sort(c("CAWA", "OVEN"))
+birdList <- sort(c("ALFL", "AMCR", "AMGO", "AMRO", "BANS", "BAOR", "BARS", "BAWW", "BBMA", "BBWA", "BBWO", "BCCH", "BHCO", "BHVI", "BLBW", "BLJA", "BLPW", "BOBO", "BOCH", "BOWA", "BRBL", "BRCR", "BTNW", "CAWA", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COGR", "CONW", "CORA", "COYE", "CSWA", "DEJU", "EAKI", "EUST", "FOSP", "GCKI", "GRAJ", "GRCA", "HAFL", "HAWO", "HETH", "HOLA", "HOSP", "HOWR", "KILL", "LCSP", "LEFL", "MOWA", "OVEN", "PAWA", "PHVI", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "WETA", "WIWR", "YRWA"))
 rasterToMatchLocation <- inputsDir
 rasterToMatchName <- "LCC2005_V1_4a.tif"
 studyAreaLocation <- downloadFolderArea

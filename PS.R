@@ -16,7 +16,7 @@ defineModule(sim, list(
   citation = list("citation.bib"),
   documentation = list("README.md", "PS.Rmd"), ## same file
   reqdPkgs = list("PredictiveEcology/SpaDES.core@development (>= 1.1.1)", "ggplot2", "raster", "rgdal", "sf", "data.table", "terra",
-                  "LandR", "googledrive", "plotrix", "ggpubr", "diptest", "nortest", "dplyr", "tidyverse", "terra", "reshape2", "RColorBrewer", "rasterVis"),
+                  "LandR", "googledrive", "plotrix", "ggpubr", "diptest", "nortest", "dplyr", "tidyverse", "reshape2"),
   parameters = bindrows(
     #defineParameter("paramName", "paramClass", value, min, max, "parameter description"),
     defineParameter(".plots", "character", "screen", NA, NA,
@@ -334,6 +334,9 @@ do1DPreds <- function(sim) {
     nrowCV <- nrow(cellValues)
     cellValues$birdSp <- rep(bird, nrowCV)
     
+    fileName <- paste(bird, "_fullDataset.csv")
+    write.csv(cellValues, file =  file.path(outputFolderBirdPreds, fileName)) 
+    
     print(paste(bird," dataset complete"))
     
     return(cellValues)
@@ -346,6 +349,7 @@ do1DPreds <- function(sim) {
   # }
  
   names(sim$birdDatasets) <- P(sim)$birdList
+ 
   
   sim$birdPreds1D <- lapply(X = P(sim)$birdList, FUN = function(bird){ 
    
@@ -409,10 +413,11 @@ assess1D <- function(sim) {
   # get summary of assumptions/stats for 1D 
   
   print("get assumptions summaries")
-  #make single dataframe 
+  #make single dataframe
   birdPreds1DSingleFrame <- rbindlist(sim$birdPreds1D)
+ 
   
-  #Get table of binary normality and unimodality 
+  #Get table of binary normality and unimodality
   #If p value is less than or equal to 0.05 it fails the test and is not considered normal/unimodal
   #fail = 0, pass = 1
   assumpTab1D <- birdPreds1DSingleFrame[,c(1,2,10, 12, 13)]
@@ -420,29 +425,33 @@ assess1D <- function(sim) {
   assumpTab1D$normal[assumpTab1D$normality_p < 0.05] <- 0
   assumpTab1D$normal[assumpTab1D$normality_p == 0.05] <- 0
   assumpTab1D$normal[assumpTab1D$normality_p > 0.05] <- 1
-  
-  
-  
+
+
+
   assumpTab1D$unimodal <- NA
   assumpTab1D$unimodal[assumpTab1D$unimodality_p < 0.05] <- 0
   assumpTab1D$unimodal[assumpTab1D$unimodality_p == 0.05] <- 0
   assumpTab1D$unimodal[assumpTab1D$unimodality_p > 0.05] <- 1
   assumpTab1D <- assumpTab1D[,c(1,2,5,6,7)]
+   
   
   #we make assumption that if there is an NA, it is not normal/unimodal
   assumpTab1D$normal[is.na(assumpTab1D$normal) == TRUE] <- 0
   assumpTab1D$unimodal[is.na(assumpTab1D$unimodal) == TRUE] <- 0
   assumpTab1D
   
+  #save tab for furture graphs comparing with 2D assumptions
+  write.csv(assumpTab1D, file =  file.path(outputFolderBirdPreds, "assumpTab1D"))
+
   #get table of prop of birds with p values under 0.05 per class
-  print("get assumptions by class 1D") 
+  print("get assumptions by class 1D")
   sim$assumptionsByClass1D <- assumpTab1D[order(uniqueClasses)][,list(noBirds = .N,
                                                                       propBirdsNormal = mean(normal),
                                                                       propBirdsUnimodal = mean(unimodal),
                                                                       binningType = "1DBins"),
                                                                 by = uniqueClasses]
-  write.csv(sim$assumptionsByClass1D, file =  file.path(outputFolderBirdPreds, "assumptionsByClass1D.csv")) 
-  
+  write.csv(sim$assumptionsByClass1D, file =  file.path(outputFolderBirdPreds, "assumptionsByClass1D.csv"))
+
   #get table of birds giving prop of classes with p values under 0.05
   print("get assumptions by bird 1D")
   sim$assumptionsByBird1D <- assumpTab1D[order(birdSp)][,list(noClasses = .N,
@@ -450,13 +459,8 @@ assess1D <- function(sim) {
                                                               propClassesUnimodal = mean(unimodal),
                                                               binningType = "1DBins"),
                                                         by = birdSp]
-  write.csv(sim$assumptionsByBird1D, file =  file.path(outputFolderBirdPreds, "assumptionsByBird1D.csv")) 
-  
-  
-  ### DO KERNEL DENSITY PLOT ###
-  
-  
-  
+  write.csv(sim$assumptionsByBird1D, file =  file.path(outputFolderBirdPreds, "assumptionsByBird1D.csv"))
+
   
   ### MAP OUT 1D PREDICTIONS
   
@@ -555,49 +559,120 @@ assess1D <- function(sim) {
   # Get full 1D Map
   print("get for1DAndNf1DMaps")
   sim$for1DAndNf1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
-    
+
     print(bird)
     raster1DBinsNF <- eval(parse(text=paste("sim$nf1DMaps$", bird, sep = "")))
     raster2DBinsFor <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
-    
+
     birdPredsRaster1D <- terra::cover(x = raster2DBinsFor,
                                y = raster1DBinsNF)
-    
+
     names(birdPredsRaster1D) <- paste(bird)
-    
+
     #birdPredsRaster1D #visually check Raster
     # clearPlot()
     # Plot(birdPredsRaster1D, na.color = "grey", zero.color = "black")
-    
+
     print(birdPredsRaster1D)
-    
+
     print(paste(bird,"for 1D and nf 1D map complete"))
     return(birdPredsRaster1D)
   })
-  
+
   names(sim$for1DAndNf1DMaps) <- P(sim)$birdList
-  
+
   print("save full 1D maps")
-  
+
   #as Rdata file
   # save(sim$for1DAndNf1DMaps,
   #      file =  file.path(outputFolderBirdPredsRasters, "for1DAndNf1DMaps.Rdata"))
   #load(file.path(outputFolderBirdPredsRasters, "for1DAndNf1DMaps.Rdata"))
-  
+
   #as tif files
-  
-  
+
+
   lapply(X = P(sim)$birdList, FUN = function(bird){
     raster <- eval(parse(text=paste("sim$for1DAndNf1DMaps$", bird, sep = "")))
     names(raster) <- paste(bird)
-    terra::writeRaster(x = raster, 
+    terra::writeRaster(x = raster,
                        filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for1DAndNf1DMap", sep = "")),
                        filetype= "GTiff",
                        gdal="COMPRESS=NONE",
                        overwrite = TRUE)
       })
+
+
+
+  #make 1D residual rasters
+  print("make 1D residual rasters")
+  ### Make 1D residual rasters - forClassRaster area only
+  sim$for1DRes <- lapply(X = birdList, FUN = function(bird){
+    
+    NM <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
+    MB <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
+    res <- NM - MB
+      
+    names(res) <- paste(bird)
+    
+    # clearPlot()
+    # Plot(res, na.color = "gray")
+    
+    print(paste(bird," forest 1D res raster complete"))
+    return(res)
+  })
   
+  names(sim$for1DRes) <- birdList
+
+  #as Rdata file
+  #save(sim$for1DRes,
+  #     file =  file.path(outputFolderBirdPredsRasters, "for1DRes.Rdata"))
+  # load(file.path(outputFolderBirdPredsRasters, "for1DRes.Rdata"))
   
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    raster <- eval(parse(text=paste("sim$for1DRes$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    terra::writeRaster(x = raster, 
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for1DRes", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+  
+  ### Make residual rasters of composite 1D predictions for forClassraster areas and 1D predictions for nonForRaster areas
+  print("Make for1DAndNf1DRes ")
+  sim$for1DAndNf1DRes <- lapply(X = P(sim)$birdList, FUN = function(bird){
+
+    NM <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
+    MB <- eval(parse(text=paste("sim$for1DAndNf1DMaps$", bird, sep = "")))
+    res <- NM - MB
+
+    names(res) <- paste(bird)
+
+    # clearPlot()
+    # Plot(res, na.color = "gray")
+
+    print(paste(bird," for 1D and nf 1D res raster complete"))
+    return(res)
+  })
+
+  names(sim$for1DAndNf1DRes) <- P(sim)$birdList
+
+  #as Rdata file
+  # save(for1DAndNf1DRes,
+  #      file =  file.path(outputFolderBirdPredsRasters, "for1DAndNf1DRes.Rdata"))
+  # # load(file.path(outputFolderBirdPredsRasters, "for1DAndNf1DRes.Rdata"))
+
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    raster <- eval(parse(text=paste("sim$for1DAndNf1DRes$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    terra::writeRaster(x = raster,
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for1DAndNf1DRes", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+
+
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
@@ -609,11 +684,9 @@ do2DPreds <- function(sim) {
   # sim$event1Test2 <- 999 # for dummy unit test
   
  
-  
-  
   #get 2D bird predictions (by forest and age class)
   birdGBM <- lapply(X = sim$birdDatasets, FUN = function(birdDF) {
-    
+   
     #keep track of how long each bird takes
     #print(Sys.time()) 
     
@@ -669,11 +742,11 @@ do2DPreds <- function(sim) {
     relInfAge <- relInfAge$rel.inf
     birdSp <- bird
     statsGBM <- cbind(birdSp, FriedmansHStat, relInfForClass, relInfAge)
-    
+   
     #generate prediction df using expand
     sim$maxAge <- max(forestedDF$age) #get age of oldest cell listed in forestedDF
     sim$maxAgeClassAge <- P(sim)$maxAgeClass*P(sim)$ageGrouping 
-   ifelse(sim$maxAge > sim$maxAgeClassAge, sim$allAges <- c(0:sim$maxAge), sim$allAges <- c(0:sim$maxAgeClassAge)) #make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
+    ifelse(sim$maxAge > sim$maxAgeClassAge, sim$allAges <- c(0:sim$maxAge), sim$allAges <- c(0:sim$maxAgeClassAge)) #make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
     birdPredictDF <- forestedDF %>% expand(landForClass, sim$allAges) #make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class. 
     names(birdPredictDF) <- c("landForClass", "age") #rename the two columns in birdPredictDF
     
@@ -688,14 +761,23 @@ do2DPreds <- function(sim) {
                                 single.tree = FALSE)  
     
     noAgeClasses <- sim$maxAge/P(sim)$ageGrouping #get the number of age classes if the max age was simply divided by the age Grouping
-    ageClasses <- rep(1:noAgeClasses, each = P(sim)$ageGrouping) 
-    ageClasses <- ifelse(ageClasses < P(sim)$maxAgeClass, ageClasses, P(sim)$maxAgeClass)
+    ageClasses <- ifelse(noAgeClasses < P(sim)$maxAgeClass, ageClasses <- P(sim)$maxAgeClass, ageClasses <- noAgeClasses )
+    ageClasses <- rep(1:ageClasses, each = P(sim)$ageGrouping)
     ageClasses <- c(1, ageClasses)
+    sim$ageClasses <- ageClasses
+    if(noAgeClasses > P(sim)$maxAgeClass){
+      ageClassDiff <- noAgeClasses - P(sim)$maxAgeClass
+      extraClasses <- P(sim)$maxAgeClass + (1:ageClassDiff)
+      for (x in extraClasses) {
+        print(x)
+        sim$ageClasses <- replace(sim$ageClasses ,sim$ageClasses== x,P(sim)$maxAgeClass)
+              } 
+    }
+    ageClasses <- sim$ageClasses
     gbmPredDF <- cbind(birdPredictDF, gbmPred, ageClasses)
     gbmPredDT <- as.data.table(gbmPredDF)
     gbmPredDT$landForClass <- as.factor(gbmPredDT$landForClass)
     gbmPredDT$ageClasses <- as.factor(gbmPredDT$ageClasses)
-    sim$ageClasses <- ageClasses
     
     # gbmPredDF <- aggregate( gbmPred ~ ageClasses * landForClass, gbmPredDF, mean )
     gbmPredDT <- gbmPredDT[order(list(landForClass, ageClasses))  
@@ -708,6 +790,10 @@ do2DPreds <- function(sim) {
     birdMatrix <- reshape2::acast(gbmPredDT, 
                                   landForClass~ageClasses, 
                                   value.var= "gbmPred")
+    
+    #if any matrix prediction values are negative, make them be 0
+    birdMatrix[birdMatrix < 0] <- 0
+    
     #save 2D birdPreds
     matrixName <- paste(bird, "_birdPreds2D.csv")
     write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName)) 
@@ -889,7 +975,7 @@ assess2D <- function(sim) {
                                                         by = birdSp]
   write.csv(sim$assumptionsByBird2D, file =  file.path(outputFolderBirdPreds, "assumptionsByBird2D.csv"))
   
-  
+ 
   ### GET 2D MAPS OF MATRIX PREDICTIONS
   print("GET 2D MAPS")
   
@@ -902,40 +988,57 @@ assess2D <- function(sim) {
   ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) #do the reclassification based on ageClassDefs
   names(ageClassRaster) <- "ageClassRaster" 
   sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
+  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
   print(sim$ageClassRaster)
   
  
     #get for2Dmaps
   print("get for2DMaps")
   sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
-    
+   
     print(bird)
     # check that spatial extent is the same for ageClassraster and forClassraster
-    print("extent of forClassRaster same as ageClassRaster?")
-    terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster)
+    #     print("extent of forClassRaster same as ageClassRaster?")
+    # terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster)
+    
     
     #reform matrix
     matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
     reclassTab2D <- reshape2::melt(matrix)
     colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
+    fromVals <- reclassTab2D[1:2]
+    fromVals <- data.matrix(fromVals)
+    toVals <- reclassTab2D[[3]]
+    
+    #reclassify new raster based on forClassRaster and ageClass Raster
+    origRas <- c(sim$forClassRaster, sim$ageClassRaster)
+    raster2DBins <- subst(origRas, fromVals, toVals)
     
     #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
-    raster2DBins <- terra::rast(sim$forClassRaster); raster2DBins[] = NA #make an empty NA raster the same as forClassRaster
+    #raster2DBins <- terra::rast(sim$forClassRaster); raster2DBins[] = NA #make an empty NA raster the same as forClassRaster
     
     #make dataframe of all the data in forClassRaster and ageClassRaster and give each cell/row a new definition column, birdDensityPred, from reclassTab2d
-    f = data.frame(forClass=sim$forClassRaster[], ageClass=sim$ageClassRaster[])
-    vec = c(1:nrow(f))
-    f[,3] = vec
-    m = merge(f, reclassTab2D, all.x=TRUE)
-    colnames(m)[3] = "ord"
-    m = m[order(m$ord),]
-    #populate raster2DBins with the birdDensityPred row of the table m
-    raster2DBins[] = m$birdDensityPred
+    # f = data.frame(forClass=sim$forClassRaster[], ageClass=sim$ageClassRaster[])
+    # vec = c(1:nrow(f))
+    # f[,3] = vec
+    # m = merge(f, reclassTab2D, all.x=TRUE)
+    # colnames(m)[3] = "ord"
+    # m = m[order(m$ord),]
+    # #populate raster2DBins with the birdDensityPred row of the table m
+    # raster2DBins[] = m$birdDensityPred
     
     names(raster2DBins) <- paste(bird)
     
     #check the new raster
     raster2DBins
+    # clearPlot()
+    # Plot(raster2DBins, na.color = "grey")
+    
+    terra::writeRaster(x = raster2DBins, 
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DMap", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
     
     print(paste(bird,"for 2D map raster complete"))
     
@@ -988,15 +1091,185 @@ assess2D <- function(sim) {
   
   
   lapply(X = P(sim)$birdList, FUN = function(bird){
-    
     raster <- eval(parse(text=paste("sim$for2DAndNf1DMaps$", bird, sep = "")))
     names(raster) <- paste(bird)
-    writeRaster(x = raster, filename = file.path(outputFolderBirdPredsRasters,
-                                                 paste(bird, "-for2DAndNf1DMap", sep = "")),
-                format = "GTiff",
-                overwrite = TRUE)
+    terra::writeRaster(x = raster, 
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DAndNf1DMap", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+  
+  
+  #Get residual rasters
+  
+  ### Make 2D residual rasters - forClassRaster area only
+  print("make for2DRes")
+  sim$for2DRes <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    NM <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
+    MB <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
+    res <- NM - MB
+    
+    names(res) <- paste(bird)
+    # clearPlot()
+    # Plot(res, na.colour = "gray")
+    
+    print(paste(bird," forest 2D res raster complete"))
+    return(res)
+  })
+  
+  names(sim$for2DRes) <- P(sim)$birdList
+  
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    raster <- eval(parse(text=paste("sim$for2DRes$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    terra::writeRaster(x = raster, 
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DRes", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+  
+  #Make residual rasters of composite 2D predictions for forClassraster areas and 1D predictions for nonForRaster areas
+  print("make for2DAndNf1DRes")
+  sim$for2DAndNf1DRes <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    NM <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
+    MB <- eval(parse(text=paste("sim$for2DAndNf1DMaps$", bird, sep = "")))
+    res <- NM - MB
+    
+    names(res) <- paste(bird)
+    # clearPlot()
+    # Plot(res, na.colour = "gray")
+    
+    print(paste(bird," for2D and nf1D res raster complete"))
+    return(res)
+  })
+  
+  names(sim$for2DAndNf1DRes) <- P(sim)$birdList
+  
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    raster <- eval(parse(text=paste("sim$for2DAndNf1DRes$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    terra::writeRaster(x = raster, 
+                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DAndNf1DRes", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+  
+  ### ANALYSIS
+  
+ #calculate spearman stats
+  print("get spearman stats")
+  spearmanStats <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    print(bird) 
+    
+    nmRas <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
+    map1D <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
+    map2D <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
+    
+    
+    valsNM <- as.data.table(terra::values(nmRas, dataframe = FALSE)) 
+    vals1DMap <- as.data.table(terra::values(map1D, dataframe = FALSE)) 
+    vals2DMap <- as.data.table(terra::values(map2D, dataframe = FALSE)) 
+    valsMaps <- cbind(valsNM, vals1DMap, vals2DMap) 
+    valsMaps <- na.omit(valsMaps)
+    colnames(valsMaps) <- c("valsNM", "vals1DMap", "vals2DMap")
+    #valsMaps <- as.data.table(valsMaps)
+    head(valsMaps)
+    #Check normality assumption 
+    #Shapiro-Wilk normality test for all data
+    # ad.test(valsMaps$valsNM) # => p = 0.1229
+    # ad.test(valsMaps$vals1DMap) # => p = 0.09
+    # ad.test(valsMaps$vals2DMap)
+    
+    # library("ggpubr")
+    # ggqqplot(valsMaps$valsNM, ylab = "National Model Prediction")
+    # ggqqplot(valsMaps$vals1DMap, ylab = "1D Map Prediction")
+    # ggqqplot(valsMaps$vals2DMap, ylab = "2D Map Prediction")
+    
+    spearman1D <-cor(valsMaps$valsNM, valsMaps$vals1DMap,  method = "spearman")
+    spearman1D
+    spearman2D <-cor(valsMaps$valsNM, valsMaps$vals2DMap,  method = "spearman")
+    spearman2D
+    
+    spearmanStats <- matrix(c( spearman1D, spearman2D), ncol= 2, byrow=TRUE)
+    colnames(spearmanStats) <- c( 'spearman1D', 'spearman2D')
+    row.names(spearmanStats) <- bird
+    
+    return(spearmanStats)
     
   })
+  
+  sim$spearmanStats <- do.call(rbind, spearmanStats)
+  
+  fileName <- "spearmanStats.csv"
+  write.csv(sim$spearmanStats, file =  file.path(outputFolderBirdPreds, fileName))
+  
+  head(sim$spearmanStats)
+
+  
+  #get tables of residuals
+  print("get resTabs")
+  sim$resTabs <- lapply(X = birdList, FUN = function(bird){
+    
+    ras1D <- eval(parse(text=paste("sim$for1DRes$", bird, sep = "")))
+    ras2D <- eval(parse(text=paste("sim$for2DRes$", bird, sep = "")))
+    
+    resVals1D <- as.data.table(terra::values(ras1D, dataframe = FALSE)) 
+    resVals1D <- setnames( resVals1D,  "resVals")
+    resVals1D <- na.omit(resVals1D)
+    res1DLab <- rep("res1D", nrow(resVals1D))
+    resVals1D <- cbind(resVals1D, binningType = res1DLab)
+    
+    resVals2D <- as.data.table(terra::values(ras2D, dataframe = FALSE))
+    resVals2D <- setnames(resVals2D,  "resVals")
+    resVals2D <- na.omit(resVals2D)
+    res2DLab <- rep("res2D", nrow(resVals2D))
+    resVals2D <- cbind(resVals2D, binningType = res2DLab)
+    
+    resVals <- rbind(resVals1D, resVals2D)
+    birdSp <- rep(paste(bird), nrow(resVals))
+    resVals <- cbind(resVals, birdSp = birdSp)
+    print(resVals)
+    
+    #save table
+    fileName <- paste(bird, "_fullResDataset.csv")
+    write.csv(resVals, file =  file.path(outputFolderBirdPreds, fileName))
+    
+    return(resVals)
+  })
+  names(sim$resTabs) <- P(sim)$birdList
+  
+  #get residual stats
+  print("get residual stats")
+ residualStats <- lapply(X = P(sim)$birdList, FUN = function(bird){
+    
+    res1D <- eval(parse(text=paste("sim$for1DRes$", bird, sep = "")))
+    res2D <- eval(parse(text=paste("sim$for2DRes$", bird, sep = "")))
+    
+    m1D <- median(terra::values(res1D, dataframe = FALSE), na.rm = TRUE)
+    m2D <- median(terra::values(res2D, dataframe = FALSE), na.rm = TRUE)
+    sa1D  <- terra::autocor(res1D, method = "moran")
+    sa2D  <- terra::autocor(res2D, method = "moran")
+    
+    residualStats <- matrix(c( m1D, m2D,  sa1D, sa2D), ncol= 4, byrow=TRUE)
+    colnames(residualStats) <- c( 'median1DRes', 'median2DRes', "autocor1DRes", "autocor2DRes")
+    row.names(residualStats) <- bird
+    print(paste(bird, " calculation complete"))
+    return(residualStats)
+    
+  })
+  
+  sim$residualStats <- do.call(rbind, residualStats)
+  
+  fileName <- "resStats.csv"
+  write.csv(sim$residualStats, file =  file.path(outputFolderBirdPreds, fileName))
+  
+  head(sim$residualStats)
   
   
   
@@ -1115,8 +1388,11 @@ assess2D <- function(sim) {
     #                           x[!is.na(y[])] <- NA
     #                           return(x)
     #                         })
+    
     # clearPlot()
     # Plot(sim$nonForRaster, na.color= "grey")
+    # 
+    
     
     #get age raster
     print("get ageRaster from Drive")
@@ -1142,8 +1418,9 @@ assess2D <- function(sim) {
     names(sim$ageRaster) <- c("ageRaster")
     
     #get bird density rasters
-    patternNameBirdRaster <- "mosaic-" #choose naming pattern to look for
-
+   # patternNameBirdRaster <- "mosaic-" #choose naming pattern to look for
+    patternNameBirdRaster <- "meanBoot_60" #choose naming pattern to look for
+    
     ## drive_ls function is used to list all the files it finds using the folder url with the given pattern
         filesToDownload <-
           googledrive::drive_ls(path = as_id(P(sim)$folderUrlBirdRaster),
@@ -1162,8 +1439,9 @@ assess2D <- function(sim) {
                  X = sim$rastersForBirdList,
                  FUN = function(rasterFile) {
                    
-                   nameBird <- substr(rasterFile, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
-                   nameBird <- paste(nameBird, ".tif", sep = "")
+                   nameBird <- substr(rasterFile, 1, 4) #works for strings of the form "XXXX-meanBoot"
+                   #nameBird <- substr(rasterFile, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+                   rasterFile <- paste(nameBird, "meanBoot-60.tif", sep = "")
                
                    ## if the item in rastersForBirdList is not already present at rastersPath, googledrive package downloads it
                    if (!file.exists(file.path(downloadFolderBird, rasterFile))) {
@@ -1181,7 +1459,8 @@ assess2D <- function(sim) {
                )
 
              #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
-             X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+             X <- lapply(sim$rastersForBirdList, substr, 1, 4) #works for strings of the form "XXXX-meanBoot.tif"
+             #X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
              names(sim$birdRasters) <- X
             
            sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
@@ -1228,7 +1507,8 @@ assess2D <- function(sim) {
     #crop and mask rasterToMatch
     sim$rasterToMatch <- terra::mask(terra::crop(sim$rasterToMatch, sim$studyArea), sim$studyArea) 
     names(sim$rasterToMatch) <- "rasterToMatch"
-    
+    # clearPlot()
+    # Plot(sim$rasterToMatch)
     
     # get forest class raster
     print("get forClassRaster from Drive")
@@ -1250,9 +1530,9 @@ assess2D <- function(sim) {
     
     sim$forClassRaster[sim$forClassRaster == 0] <- NA
     
-    # clearPlot()
+     # clearPlot()
     # Plot(sim$forClassRaster, na.color= "grey")
-    
+
     #get non forest raster
     print("get nonForRaster from Drive")
     nonForRaster <- terra::rast(file.path(P(sim)$folderUrlNonFor, P(sim)$nameNonForRaster))
@@ -1279,6 +1559,7 @@ assess2D <- function(sim) {
     #                           x[!is.na(y[])] <- NA
     #                           return(x)
     #                         })
+    # 
     # clearPlot()
     # Plot(sim$nonForRaster, na.color= "grey")
     
@@ -1302,7 +1583,7 @@ assess2D <- function(sim) {
     
     
     #get bird density rasters
-    
+    P(sim)$birdList <- sort(P(sim)$birdList)
       ## for each item in turn from rastersForBirdlist the following function is applied:
     sim$birdRasters <-
       lapply(
@@ -1310,20 +1591,22 @@ assess2D <- function(sim) {
         FUN = function(bird) {
          
           print(bird)
-          bird <- paste(bird, ".tif", sep = "")
-          
-          return(terra::rast(file.path(downloadFolderBird, bird)))
+          #bird <- paste(bird, ".tif", sep = "")
+          rasterFile <- paste(bird, "-meanBoot_60", sep = "")
+          return(terra::rast(file.path(downloadFolderBird, rasterFile)))
           
         }
       )
     
     #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
-    X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+    #X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+    X <- lapply(sim$rastersForBirdList, substr, 1, 4) #works for strings of the form "XXXX-meanBoot.tif"
     names(sim$birdRasters) <- X
     
     sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
       ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
       
+      print(RasterLayer)
       proRaster <- reproducible::postProcess(RasterLayer,
                                              #studyArea = sim$studyArea,
                                              rasterToMatch = sim$rasterToMatch,
@@ -1385,6 +1668,22 @@ assess2D <- function(sim) {
 
   # clearPlot()
   # Plot(sim$FNFRaster, na.color= "grey")
+  
+  # forLabs <- c(1, 2, 3, 4, 5, 6, 7)
+  # newForLabs <- c("Black_Spruce", "Black_Spruce_Wet", "Conifer_Mix", "Deciduous", "Mixed", "Pine", "White_Spruce")
+  # forClassifyTab <- cbind(forLabs, newForLabs)
+  # sim$forClassRaster <- terra::classify(sim$forClassRaster, forClassifyTab)
+  # 
+  # clearPlot()
+  # Plot(sim$forClassRaster, na.color= "grey")
+  # 
+  # nfLabs <- c(0, 1, 2, 3, 4, 5, 6)
+  # newNFLabs <- c("Forest", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid")
+  # nfClassifyTab <- cbind(nfLabs, newNfLabs)
+  # sim$nonForRaster <- terra::classify(sim$nonForRaster, forClassifyTab)
+  # 
+  # clearPlot()
+  # Plot(sim$nonForRaster, na.color= "grey")
   
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
