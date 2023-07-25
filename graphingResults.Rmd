@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE)
+library(sna)
 library(rgdal)
 library(terra)
 library(SpaDES)
@@ -25,6 +26,9 @@ library(viridis)
 library(naniar)
 library(raster)
 library(rasterVis)
+library(ggh4x)
+library(egg)
+library(cowplot)
 
 options(digits=3) #limit number of digits displayed
 
@@ -42,7 +46,7 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
 
  #get rasterToMatch
     print("get rasterTomatch from local drive")
-    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/LCC2005_V1_4a.tif"))
+    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
    
     
     #get StudyArea shapefile
@@ -91,7 +95,7 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
     plot(forClassRaster, colNA = "grey")
     #get non forest raster
     print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/nonForestRas_ABNew_0722.tif"))
+    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
     nonForRaster <- postProcess(nonForRaster,
                                destinationPath = getwd(),
                                #use the function raster
@@ -238,7 +242,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
 #get BC data
       #get rasterToMatch
     print("get rasterTomatch from local drive")
-    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/LCC2005_V1_4a.tif"))
+    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
    
     
     #get StudyArea shapefile
@@ -287,7 +291,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
     plot(forClassRaster, colNA = "grey")
     #get non forest raster
     print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/nonForestedRas_BC_0722.tif"))
+    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
     nonForRaster <- postProcess(nonForRaster,
                                destinationPath = getwd(),
                                #use the function raster
@@ -471,14 +475,15 @@ names(ras.labs) <- c("0", "1")
     geom_bar(stat = "identity",
              position = "dodge",
              width = 0.7) +
-      facet_grid(. ~ FNFRaster, scales = "free", labeller = labeller(FNFRaster= ras.labs))+
+      facet_wrap(. ~ FNFRaster, scales = "free", labeller = labeller(FNFRaster= ras.labs))+
     theme_classic() +
-    ggtitle(paste0("Proportional area by cover class")) +
+    labs(tag = "A") +
+      #ggtitle(paste0("Proportional area by cover class")) +
     ylab("Proportion of study area") +
     scale_y_continuous(breaks= pretty_breaks()) +
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
-   scale_x_discrete(labels=c("0_0" = "Forest", "0_1" = "Water/Ice", "0_2" = "Wetland", "0_3" = "Anthro/\nExposed", "0_4" = "Grass/\nCrop" , "0_5" = "Shrub", "0_6" = "Bryoid", "1_1" = "Black \nSpruce", "1_2" = "  Black  \nSpruce Wet", "1_3" = "Conifer Mix", "1_4" = "Deciduous", "1_5" = "Mixed", "1_6" = "Pine", "1_7" = "White \nSpruce")) +
+   scale_x_discrete(labels=c("0_0" = "Forest", "0_1" = "Water/Ice", "0_2" = "Wetland", "0_3" = "Anthro/\nExposed", "0_4" = "Grass/\nCrop" , "0_5" = "Shrub", "0_6" = "Bryoid", "1_7" = "White \nSpruce", "1_1" = "Black \nSpruce", "1_2" = "  Black  \nSpruce Wet", "1_6" = "Pine", "1_3" = "Conifer Mix",  "1_5" = "Mixed", "1_4" = "Deciduous"  )) +
     theme(title = element_text(size = 16),
         strip.text.x = element_text(size = 14),
         strip.text.y = element_text(size = 14),
@@ -490,6 +495,7 @@ names(ras.labs) <- c("0", "1")
         axis.title.x = element_blank(),
         legend.title = element_blank(),
         legend.text = element_blank(),
+        plot.margin = margin(0,0.5,0,0.1, "cm"),
         legend.position="NULL")
  plotClassCounts   
 
@@ -504,8 +510,64 @@ names(ras.labs) <- c("0", "1")
  
  allLandData <- allLandData[allLandData$FNFRaster == 1, ]
  allLandData <- subset(allLandData, !is.na(ageRaster)) 
+ allLandData_age <- allLandData
+
+ #assign age class column
+ ageGrouping <- 20
+ maxAgeClass <- 10
+ maxAge <- max(allLandData_age$ageRaster) #get age of oldest cell 
+ maxAgeClassAge <- maxAgeClass*ageGrouping 
  
-  # landDatStats_AB <- allLandData_AB[order(FNFRaster, 
+     ifelse(maxAge > maxAgeClassAge, ageRaster <- c(0:maxAge), ageRaster <- c(0:maxAgeClassAge)) #make a vector that counts from 0 to 
+  maxAge <-   as.numeric(maxAge)
+ noAgeClasses <- maxAge/ageGrouping
+ ageClass <- ifelse(noAgeClasses < maxAgeClass, ageClass <- maxAgeClass, ageClass <- noAgeClasses )
+    ageClass <- rep(1:ageClass, each = ageGrouping)
+    ageClass <- c(1, ageClass)
+    if(noAgeClasses > maxAgeClass){
+      ageClassDiff <- noAgeClasses - maxAgeClass
+      extraClass <- maxAgeClass + (1:ageClassDiff)
+      for (x in extraClass) {
+        print(x)
+        ageClass <- replace(ageClass ,ageClass== x,maxAgeClass)
+              } 
+    }
+ 
+ ageRefTab <- cbind(ageRaster, ageClass) #creates a lookup table of age to age class
+ ageRefTab <- as.data.table(ageRefTab)
+ ageRefTab$ageRaster <- as.character(ageRefTab$ageRaster)
+ ageRefTab$ageClass <- as.character(ageRefTab$ageClass)
+ #allLandData$ageClass = allLandData$ageRaster #replicate age data in new column
+ 
+ #replace ages with ageClass in ageClass column
+ # new <- allLandData
+ # new[] <- lapply(allLandData, function(x) ageRefTab$ageClass[match(x, ageRefTab$ageRaster)])
+# ageClassTab[] <- ageRefTab$ageClass[match(unlist(allLandData), ageRefTab$ageRaster)]
+
+ library(dplyr)
+library(tidyr)
+ allLandData_age$ageRaster <- as.character(allLandData_age$ageRaster)
+ #storeDat <- allLandData
+allLandData_age %>% pivot_longer(cols = "ageRaster")
+ allLandData_age <-  allLandData_age %>% left_join(ageRefTab, by = "ageRaster") 
+   #allLandData %>% pivot_wider(key = ageRaster, value = ageClass)
+  allLandData_age
+ 
+ landDatStats_age <- allLandData_age[order(studyArea,
+                                        ageClass)
+                                  # order the rows by the land cover class
+                                  ][,list(classCount = .N
+                                          ),
+                                          by = list(studyArea, ageClass
+                                        )]
+
+   landDatStats_age[ , propArea := classCount/sum(classCount), by = studyArea]
+   AB9 <- list("AB", 9, 0, 0)
+   AB10 <- list("AB", 10, 0, 0)
+   landDatStats_age <- rbind(landDatStats_age, AB9)
+   landDatStats_age <- rbind(landDatStats_age, AB10)
+ 
+ # landDatStats_AB <- allLandData_AB[order(FNFRaster, 
   #                                        uniqueClasses) 
   #                                  # order the rows by the land cover class
   #                                  ][,list(classCount = .N
@@ -531,8 +593,8 @@ names(ras.labs) <- c("0", "1")
  
 # make histogram of ages
   #landDatNoNAs <- na.omit(allLandData)
-  class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
-names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
+#   class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
+# names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
 
 
   # ggplot(aes(x = hwy)) +
@@ -540,17 +602,21 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
   # scale_y_continuous(labels = scales::percent)
 
   #ageHistDat <- na.omit(allLandData, cols = "forClassRaster")
-  ageHist <-ggplot(data = allLandData, aes(x= ageRaster, fill = factor(studyArea, levels=c("BC", "AB")))) + 
-    geom_histogram(aes(y = count / sum(count)), binwidth = 20, position = "dodge" ) +
-    # facet_wrap( ~ , 
-    #             labeller = labeller(uniqueClasses = class.labs),
-    #             scales = "free_y") +
-    ggtitle(paste0("Forest age class structure")) +
+ ageDistribution <- ggplot(data = landDatStats_age,
+                              aes(x = ageClass,
+                                  y = propArea,
+                                  fill = factor(studyArea, levels=c("BC", "AB")))) +
+    geom_bar(stat = "identity",
+             position = "dodge",
+             width = 0.7) +
+   labs(tag = "B") +
+    #ggtitle(paste0("Forest age class structure")) +
     xlab("Age (yrs)") +
-   # ylab("Pixel count") +
+    ylab("Proportion of study area") +
     theme_classic()+
-    scale_y_continuous(labels = scales::percent, breaks= pretty_breaks()) +
-    scale_x_continuous(breaks= pretty_breaks()) +
+   scale_x_discrete(labels=c("1" = "0-20","2" = "21-40","3" = "41-60","4"= "61-80","5"= "81-100","6"= "101-120","7"= "121-140", "8" = "141-160","9" = "161-180", "10" = "181+"),
+                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
+    scale_y_continuous(breaks= pretty_breaks()) +
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
      theme(title = element_text(size = 16),
@@ -559,13 +625,14 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
         strip.background = element_rect(
         color="white", fill="white", linewidth =1.5),
         axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
         axis.title.y = element_text(size = 14),
         axis.title.x = element_text(size = 12),
         legend.title = element_blank(),
         legend.text = element_blank(),
+        plot.margin = margin(0,0,0.5,0.3, "cm"),
         legend.position="NULL")
-  ageHist
+  ageDistribution
  
 # # examine 0 class
 #   class0 <- allLandData[nonForRaster == "0"]
@@ -679,7 +746,8 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
              position = "dodge",
              width = 0.7) +
     theme_classic() +
-    ggtitle(paste0("Mean age by forest class")) +
+   # ggtitle(paste0("Mean age by forest class")) +
+   labs(tag = "C") +
     xlab("Forest class") +
     ylab("Mean age") +
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
@@ -696,6 +764,7 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
         axis.title.x = element_blank(),
         legend.title = element_blank(),
         legend.text = element_text(size = 12),
+        plot.margin = margin(0,0.5,0,0, "cm"),
         legend.position="bottom")
   plotMeanAgeByClass 
   
@@ -704,9 +773,35 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
 # put landscape plots together
 
 lay <- rbind(c(1,1), c(2,3))
+
+landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  
+                                            ageDistribution, 
+                                            plotMeanAgeByClass, 
+                                            layout_matrix = lay
+                                               )
+
   
-landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  ageHist, plotMeanAgeByClass, layout_matrix = lay)   
+  #    
+  # allMatrixPlot <- ggarrange( plotClassCounts +
+  #                             theme(title = element_blank())
+  #                          ,
+  #                          ageDistribution +
+  #                             theme(title = element_blank())
+  #                          ,
+  #                          plotMeanAgeByClass+
+  #                             theme(title = element_blank()),
+  #                            widths = c(2, 1, 1), 
+  #                            #heights = c(1, 1, 1),
+  #                          #layout_matrix = lay,
+  #                           nrow = 2,
+  #                           #ncol = 2,
+  #                          labels = c("A", "B", "C"),
+  #                          label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+  #                           ) 
   
+  
+#   library(gridExtra)
+# grid.arrange(bp, dp, vp, sc, ncol=2, nrow =2)
 ```
 
 ##landscape rasters maps
@@ -717,7 +812,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  ageHist, plotMeanA
 
  #get rasterToMatch
     print("get rasterTomatch from local drive")
-    AB_rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/LCC2005_V1_4a.tif"))
+    AB_rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
    
     
     #get StudyArea shapefile
@@ -766,7 +861,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  ageHist, plotMeanA
     #plot(AB_forClassRaster, colNA = "grey")
     #get non forest raster
     print("get nonForRaster from Drive")
-    AB_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/nonForestRas_ABNew_0722.tif"))
+    AB_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
     AB_nonForRaster <- postProcess(AB_nonForRaster,
                                destinationPath = getwd(),
                                #use the function raster
@@ -861,7 +956,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  ageHist, plotMeanA
   
    #get rasterToMatch
     print("get rasterTomatch from local drive")
-    BC_rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/LCC2005_V1_4a.tif"))
+    BC_rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
    
     
     #get StudyArea shapefile
@@ -910,7 +1005,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  ageHist, plotMeanA
     #plot(BC_forClassRaster, colNA = "grey")
     #get non forest raster
     print("get nonForRaster from Drive")
-    BC_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/nonForestedRas_BC_0722.tif"))
+    BC_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
     BC_nonForRaster <- postProcess(BC_nonForRaster,
                                destinationPath = getwd(),
                                #use the function raster
@@ -1012,7 +1107,7 @@ legend("bottomright", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer M
 #nonForRaster
 #plot(nonForRaster,colNA="grey70")
 # customizing the legend
-nf.legend <- legend("bottom", legend = c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed Land", "Grass/Cropland", "Shrub", "Bryoid"), fill = cbPalette)
+nf.legend <- legend("right", legend = c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed Land", "Grass/Cropland", "Shrub", "Bryoid"), fill = cbPalette)
 plot(BC_nonForRaster, main = 'British Columbia land class raster', legend = FALSE, colNA="white", col = cbPalette, axes=FALSE, box=FALSE)
 plot(AB_nonForRaster, main = 'Alberta land class raster', legend = nf.legend, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
 
@@ -1105,7 +1200,8 @@ plotMeanBirdDensity
 dev.new()
 #make plot of 1D mean density by cover class
 birdPreds1D <- lapply(birdList, FUN= function(bird){
-  birdPreds1D <- as.data.frame(read_csv(paste("Results/PS results AB 20 yr age classes boot ras/",bird, " _birdPreds1D.csv", sep = "")))
+ 
+   birdPreds1D <- as.data.frame(read_csv(paste("Results/PS results AB 20 yr age classes boot ras/",bird, " _birdPreds1D.csv", sep = "")))
   birdPreds1D$uniqueClasses <- as.character(birdPreds1D$uniqueClasses)
   birdPreds1D$forestedStatus <- as.character(birdPreds1D$forestedStatus)
   return(birdPreds1D)
@@ -1137,7 +1233,7 @@ birdPreds1DSingleFrame <- rbind(birdPreds1DSingleFrame_1, birdPreds1DSingleFrame
 sp.labs <- c("Bay-breasted \nWarbler", "Brown \nCreeper", "Canada \nWarbler", "Dark-eyed \nJunco", "Ovenbird")
 names(sp.labs) <- c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN")
 
-ras.labs <- c("Non-forest raster", "Forest raster")
+ras.labs <- c("Land cover class raster", "Forest class raster")
 names(ras.labs) <- c("0", "1")
 
 #Make plot
@@ -1155,10 +1251,10 @@ plotMeanBirdDensity <- ggplot(data = birdPreds1DSingleFrame,
   # geom_errorbar(aes(ymin = meanBirdDensity - seBirdDensity, ymax = meanBirdDensity + seBirdDensity),
   #               width = .20) +
   theme_classic() +
-  ggtitle("Mean bird density (males/ha) by cover class, \nfor two study areas") +
+  ggtitle("Predicted bird density (males/ha) by class") +
   #xlab("Cover Class") +
   ylab("Mean density (males/ha)") +
-  labs(fill = "Study area location") +
+  labs(fill = "Study area") +
   scale_y_continuous(breaks= pretty_breaks()) +
   scale_x_discrete(labels=c("0_0" = "Unclassified forest", "0_1" = "Water/Ice", "0_2" = "Wetland", "0_3" = "Anthro/Exposed", "0_4" = "Grass/Crop" , "0_5" = "Shrub", "0_6" = "Bryoid", "1_1" = "Black spruce", "1_2" = "Black spruce wet", "1_3" = "Conifer Mix", "1_4" = "Deciduous", "1_5" = "Mixed", "1_6" = "Pine", "1_7" = "White spruce")) +
   scale_fill_manual(values=c("#009E73","#56B4E9"),
@@ -1248,7 +1344,7 @@ birdPreds1D <- lapply(birdList, FUN= function(bird){
 names(birdPreds1D) <- birdList
 
 #make dataframe of birds you want to include
-birdPreds1DSingleFrame_1 <- rbind(birdPreds1D$BBWA, birdPreds1D$BRCR, birdPreds1D$CAWA, birdPreds1D$OVEN)
+birdPreds1DSingleFrame_1 <- rbind(birdPreds1D$BBWA, birdPreds1D$BRCR, birdPreds1D$CAWA, birdPreds1D$DEJU, birdPreds1D$OVEN)
 dataset <- rep("AB", each = nrow(birdPreds1DSingleFrame_1))
 birdPreds1DSingleFrame_1 <- cbind(birdPreds1DSingleFrame_1, dataset)
 
@@ -1262,24 +1358,24 @@ birdPreds1D <- lapply(birdList, FUN= function(bird){
 names(birdPreds1D) <- birdList
 
 #make dataframe of birds you want to include
-birdPreds1DSingleFrame_2 <- rbind(birdPreds1D$BBWA, birdPreds1D$BRCR, birdPreds1D$CAWA, birdPreds1D$OVEN)
+birdPreds1DSingleFrame_2 <- rbind(birdPreds1D$BBWA, birdPreds1D$BRCR, birdPreds1D$CAWA, birdPreds1D$DEJU, birdPreds1D$OVEN)
 dataset <- rep("BC", each = nrow(birdPreds1DSingleFrame_2))
 birdPreds1DSingleFrame_2 <- cbind(birdPreds1DSingleFrame_2, dataset)
 
 birdPreds1DSingleFrame <- rbind(birdPreds1DSingleFrame_1, birdPreds1DSingleFrame_2)
 
 #define labels
-sp.labs <- c("Bay-breasted Warbler", "Brown Creeper", "Canada Warbler", "Ovenbird")
-names(sp.labs) <- c("BBWA", "BRCR", "CAWA", "OVEN")
+sp.labs <- c("Bay-breasted Warbler", "Brown Creeper", "Canada Warbler",  "Dark-eyed Junco","Ovenbird")
+names(sp.labs) <- c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN")
 
 #Make plot
 
 plotMedianBirdDensity <- ggplot(data = birdPreds1DSingleFrame,
                               aes(x = uniqueClasses,
                                   y = medianBirdDensity,
-                                  fill = dataset)) +
-  facet_wrap(~ birdSp, ncol = 1, scales= 'free_y',
-             labeller = labeller(birdSp = sp.labs)
+                                  fill = factor(dataset, levels=c("BC", "AB")))) +
+  facet_grid(birdSp  ~ forestedStatus, scales= 'free',
+             labeller = labeller(birdSp = sp.labs,forestedStatus = ras.labs)
   ) +
   geom_bar(stat = "identity",
            position = "dodge",
@@ -1293,10 +1389,10 @@ plotMedianBirdDensity <- ggplot(data = birdPreds1DSingleFrame,
   labs(fill = "Study area location") +
   scale_y_continuous(breaks= pretty_breaks()) +
   scale_x_discrete(labels=c("0_0" = "Unclassified forest", "0_1" = "Water/Ice", "0_2" = "Wetland", "0_3" = "Anthro/Exposed", "0_4" = "Grass/Crop" , "0_5" = "Shrub", "0_6" = "Bryoid", "1_1" = "Black spruce", "1_2" = "Black spruce wet", "1_3" = "Conifer Mix", "1_4" = "Deciduous", "1_5" = "Mixed", "1_6" = "Pine", "1_7" = "White spruce")) +
-  scale_fill_manual(values=c("#56B4E9", "#009E73"),
-                    labels = c("Alberta", "British Columbia")) +
+  scale_fill_manual(values=c("#009E73","#56B4E9"),
+                    labels = c( "British Columbia", "Alberta")) +
   theme(title = element_text(size = 14),
-        strip.text.x = element_text(
+        strip.text = element_text(
           size = 14),
         legend.title = element_text(size = 14),
         legend.text = element_text(size = 12),
@@ -1323,7 +1419,7 @@ plotMedianBirdDensity
 
 ```{r plotBirdMatriciesAB20, echo=FALSE}
 
-dev.new()
+
 #make plot of 2D bird density predictions
 
 #get matricies
@@ -1367,25 +1463,25 @@ names(class.labs) <- c("1", "2", "3", "4", "5", "6", "7")
 
 
 
-plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
+AB20_plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
                                 aes(fill= ageClass, y= birdDensityPred, x= ageClass)) +
   geom_bar(position = "dodge", stat = "identity") +
   facet_grid( birdSp ~ forClass,
               labeller = labeller(forClass = class.labs, birdSp = sp.labs),
               scales="free") +
   theme_classic() +
-  ggtitle("Predicted bird density by forest class and age for the Alberta study area, \nusing 20-year age classes") +
+  ggtitle("Predicted density (males/ha) by forest class and age (20-yr age classes), \nfor Alberta study area") +
   xlab("Age (yrs)")  +
   scale_x_discrete(labels=c("1" = "0-20","2" = "","3" = "41-60","4"= "","5"= "81-100","6"= "","7"= "", "8" = "141-160","9" = "", "10" = "181+"),
                    limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
    scale_fill_manual(values=c("#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9","#56B4E9")) +
-  ylab("Predicted bird density (males/ha)") +
+  ylab("Bird density (males/ha)") +
   scale_y_continuous(breaks= pretty_breaks()) +
   theme(title = element_text(size = 14),
         strip.text.x = element_text(
-          size = 14),
+          size = 13),
         strip.text.y = element_text(
-          size = 14),
+          size = 13),
         legend.position="NULL",
         strip.background = element_rect(
           color="white", fill="white", linewidth =1.5),
@@ -1396,13 +1492,13 @@ plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
         plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
 
 facet_bounds <- read.table(header=TRUE,
-text=                           
+text=
 "birdSp ymin ymax     breaks  xmin  xmax
 BBWA       0     0.08   0.02     1    10
 BRCR       0     0.25   0.05     1    10
 CAWA       0     0.025  0.005    1    10
 DEJU       0     0.3    0.05     1    10
-OVEN       0     0.3    0.05     1    10",
+OVEN       0     0.25    0.05     1    10",
 stringsAsFactors=FALSE)
 
 ff <- with(facet_bounds,
@@ -1411,7 +1507,7 @@ ff <- with(facet_bounds,
                       birdSp=c(birdSp,birdSp)))
 ff$ageClass <- as.character(ff$ageClass)
 
-plotMeanBirdDensity2D + geom_point(data=ff,x=NA)
+AB20_plotMeanBirdDensity2D + geom_point(data=ff,x=NA)
 
 #plotMeanBirdDensity2D
 #jpeg("plotMeanBirdDensity2D.jpg")
@@ -1542,25 +1638,25 @@ names(sp.labs) <- c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN")
 class.labs <- c("Black \nSpruce", "Black \nSpruce Wet", "Conifer \nMix", "Deciduous", "Mixed", "Pine", "White \nSpruce")
 names(class.labs) <- c("1", "2", "3", "4", "5", "6", "7")
 
-plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
+BC20_plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
                                 aes(fill= ageClass, y= birdDensityPred, x= ageClass)) +
   geom_bar(position = "dodge", stat = "identity") +
   facet_grid( birdSp ~ forClass,
               labeller = labeller(forClass = class.labs, birdSp = sp.labs),
               scales="free") +
   theme_classic() +
-  ggtitle("Predicted bird density by forest class and age for the British Columbia study area, \nusing 20-year age classes") +
+  ggtitle("Predicted density (males/ha) by forest class and age (20-yr age classes), \nfor British Columbia study area") +
   xlab("Age (yrs)")  +
   scale_x_discrete(labels=c("1" = "0-20","2" = "","3" = "41-60","4"= "","5"= "81-100","6"= "","7"= "", "8" = "141-160","9" = "", "10" = "181+"),
                    limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
    scale_fill_manual(values=c("#009E73","#009E73","#009E73","#009E73","#009E73","#009E73","#009E73","#009E73","#009E73","#009E73")) +
-  ylab("Predicted bird density (males/ha)") +
+  ylab("Bird density (males/ha)") +
   scale_y_continuous(breaks= pretty_breaks()) +
   theme(title = element_text(size = 14),
         strip.text.x = element_text(
-          size = 14),
+          size = 13),
         strip.text.y = element_text(
-          size = 14),
+          size = 13),
         legend.position="NULL",
         strip.background = element_rect(
           color="white", fill="white", linewidth =1.5),
@@ -1571,13 +1667,13 @@ plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
         plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
 
 facet_bounds <- read.table(header=TRUE,
-text=                           
+text=
 "birdSp ymin ymax     breaks  xmin  xmax
 BBWA       0     0.08   0.02     1    10
 BRCR       0     0.25   0.05     1    10
 CAWA       0     0.025  0.005    1    10
 DEJU       0     0.3    0.05     1    10
-OVEN       0     0.3    0.05     1    10",
+OVEN       0     0.25    0.05     1    10",
 stringsAsFactors=FALSE)
 
 ff <- with(facet_bounds,
@@ -1586,7 +1682,7 @@ ff <- with(facet_bounds,
                       birdSp=c(birdSp,birdSp)))
 ff$ageClass <- as.character(ff$ageClass)
 
-plotMeanBirdDensity2D + geom_point(data=ff,x=NA)
+BC20_plotMeanBirdDensity2D + geom_point(data=ff,x=NA)
 
 
 #plotMeanBirdDensity2D
@@ -1662,7 +1758,7 @@ plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
         strip.background = element_rect(
           color="white", fill="white", linewidth =1.5),
         axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        axis.text.x = element_text(size = 12, angle = 35, hjust = 1),
         axis.title.y = element_text(size = 14),
         axis.title.x = element_text(size = 14))
 
@@ -1671,6 +1767,192 @@ plotMeanBirdDensity2D
 
 ```
 
+
+## (two datasets) plot bird matricies
+
+```{r twoDatasetsPlotBirdMatricies, echo=FALSE}
+
+#make plot of 2D bird density predictions
+
+#get matricies
+birdMatricies <- lapply(birdList, FUN= function(bird){
+  birdMatrix <- as.data.frame(read_csv(paste("Results/PS results AB 20 yr age classes boot ras/",bird, " _matrix.csv", sep = "")))
+  return(birdMatrix)
+})
+names(birdMatricies) <- birdList
+
+
+AB20_matrixAsTables <- lapply(X = birdList, FUN = function(bird){
+ 
+  matrix <-  eval(parse(text=paste("birdMatricies$", bird, sep = "")))
+  matrix <- matrix[2:ncol(matrix)]
+  matrix <- data.matrix(matrix)
+  tab <- melt(matrix)
+  colnames(tab) <- c( "forClass","ageClass", "birdDensityPred")
+  birdSp <- rep(paste(bird), nrow(tab))
+  tab <- cbind(tab, birdSp = birdSp)
+  tab$ageClass <- as.character(tab$ageClass)
+  tab$forClass <- as.character(tab$forClass)
+  tab$birdSp <- as.character(tab$birdSp)
+  tab$birdDensityPred <- as.numeric(tab$birdDensityPred)
+  print(tab)
+  
+  return(tab)
+})
+
+names(AB20_matrixAsTables) <- birdList
+
+
+#make plot of 2D bird density predictions
+
+#get matricies
+birdMatricies <- lapply(birdList, FUN= function(bird){
+  birdMatrix <- as.data.frame(read_csv(paste("Results/PS results BC 20 yr age classes boot ras/",bird, " _matrix.csv", sep = "")))
+  return(birdMatrix)
+})
+names(birdMatricies) <- birdList
+
+BC20_matrixAsTables <- lapply(X = birdList, FUN = function(bird){
+ 
+  matrix <-  eval(parse(text=paste("birdMatricies$", bird, sep = "")))
+  matrix <- matrix[2:ncol(matrix)]
+  matrix <- data.matrix(matrix)
+  tab <- melt(matrix)
+  colnames(tab) <- c( "forClass","ageClass", "birdDensityPred")
+  birdSp <- rep(paste(bird), nrow(tab))
+  tab <- cbind(tab, birdSp = birdSp)
+  tab$ageClass <- as.character(tab$ageClass)
+  tab$forClass <- as.character(tab$forClass)
+  tab$birdSp <- as.character(tab$birdSp)
+  tab$birdDensityPred <- as.numeric(tab$birdDensityPred)
+  print(tab)
+  
+  return(tab)
+})
+
+names(BC20_matrixAsTables) <- birdList
+
+
+
+# make a plot for each sp
+
+# New facet label names for species, forest classes, and study areas
+sp.labs <- c("Bay-breasted \nWarbler", "Brown \nCreeper", "Canada \nWarbler", "Dark-eyed \nJunco", "Ovenbird \n")
+names(sp.labs) <- c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN")
+
+class.labs <- c("Black \nSpruce", "Black \nSpruce Wet", "Conifer \nMix", "Deciduous", "Mixed", "Pine", "White \nSpruce")
+names(class.labs) <- c("1", "2", "3", "4", "5", "6", "7")
+
+sa.labs <- c("British Columbia", "Alberta")
+names(sa.labs) <- c("BC", "AB")
+
+#do not see facet labels for study area
+strips <- strip_nested(
+  text_y = list(element_blank(), element_text()),
+  background_y = list(element_blank(), element_rect()), 
+  by_layer_y = TRUE,
+  bleed = TRUE
+)
+
+plotMeanBirdDensity2D <- lapply(X = birdList, FUN = function(bird){
+ 
+  print(bird)
+  
+  BC20_matrixAsTables <- eval(parse(text=paste("BC20_matrixAsTables$", bird, sep = "")))
+  AB20_matrixAsTables <- eval(parse(text=paste("AB20_matrixAsTables$", bird, sep = "")))
+  
+  
+  #make dataframe of birds you want to include
+dataset <- rep("BC", each = nrow(BC20_matrixAsTables))
+BC20_matrixAsTables <- cbind(BC20_matrixAsTables, dataset)
+dataset <- rep("AB", each = nrow(AB20_matrixAsTables))
+AB20_matrixAsTables <- cbind(AB20_matrixAsTables, dataset)
+
+tab <- rbind(BC20_matrixAsTables,  AB20_matrixAsTables)
+  
+# make ggplot
+plotMeanBirdDensity2D <- ggplot(data = tab,
+                                aes(fill= dataset, y= birdDensityPred, x= ageClass)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  facet_nested( factor(dataset, levels = c("BC", "AB")) + birdSp ~ forClass,
+              labeller = labeller(forClass = class.labs, birdSp = sp.labs),
+              strip = strips,
+              nest_line = element_line(linetype = 2)) +
+  theme_classic() +
+  ggtitle("Predicted bird density (males/ha) by forest class and age") +
+  xlab("Forest age (yrs)")  +
+  scale_x_discrete(labels=c("1" = "0-20","2" = "","3" = "41-60","4"= "","5"= "81-100","6"= "","7"= "", "8" = "141-160","9" = "", "10" = "181+"),
+                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
+ scale_fill_manual(values=c("#009E73","#56B4E9"), labels=c("BC" = "British Columbia", "AB" = "Alberta" ),limits = c("BC", "AB")) +
+   ylab("Density (males/ha)") +
+  scale_y_continuous(breaks= pretty_breaks()) +
+  theme(title = element_text(size = 16),
+        strip.text.x = element_text(
+          size = 14),
+        strip.text.y = element_text(
+          size = 14),
+        legend.position="bottom",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 14),
+        strip.background = element_rect(
+          color="white", fill="white", linewidth =1.5),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 35, hjust = 1),
+        axis.title.y = element_text(size = 14),
+        axis.line.y = element_line(linewidth = 1),
+        axis.title.x = element_text(size = 14))
+
+  return(plotMeanBirdDensity2D)
+})
+
+names(plotMeanBirdDensity2D) <- birdList
+
+
+allMatrixPlot <- ggarrange(plotMeanBirdDensity2D$BBWA +
+                             theme(axis.text.x = element_blank(),
+                                   #axis.ticks.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   axis.title.y = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotMeanBirdDensity2D$BRCR +
+                             theme(axis.text.x = element_blank(),
+                                   #axis.ticks.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   axis.title.y = element_blank(),
+                                   strip.text.x = element_blank(),
+                                   legend.position= "none",
+                                   title = element_blank()
+                                   )
+                           ,
+                           plotMeanBirdDensity2D$CAWA +
+                             theme(axis.text.x = element_blank(),
+                                   #axis.ticks.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   strip.text.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotMeanBirdDensity2D$DEJU +
+                             theme(axis.text.x = element_blank(),
+                                   #axis.ticks.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   axis.title.y = element_blank(),
+                                   strip.text.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position = "none")
+                           ,
+                          plotMeanBirdDensity2D$OVEN+
+                             theme(axis.title.y = element_blank(),
+                                   title = element_blank(),
+                                   strip.text.x = element_blank()), 
+                         
+                           ncol = 1
+                            )
+dev.new()
+allMatrixPlot
+
+```
 
 ## DENSITY PLOTS
 
@@ -1726,7 +2008,7 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
 Creates a density plot for a single species, selected from the birdDatasets, for each class. 
 
 ```{r densityPlot1D_2datasets, echo=FALSE}
-dev.new()
+
 #get birdDatasets
 birdDatasets_1 <- lapply(birdList, FUN= function(bird){
   birdDatasets <- as.data.frame(read_csv(paste("Results/PS results AB 20 yr age classes boot ras/",bird, " _fullDataset.csv", sep = "")))
@@ -1760,26 +2042,24 @@ dataset <- rep("BC", each = nrow(birdData_2))
 birdData_2 <- cbind(birdData_2, dataset)
 
 birdData <- rbind(birdData_1, birdData_2)
-
+birdData <- as.data.table(birdData)
 
 class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
 names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
 
-# densityPlot_OVEN_1_5.6 <-  ggplot(OVEN_1_5.6, aes(x=birdDensity, fill=factor(resultsSet))) +
-#   geom_density(alpha=.25) +
-  
-  densityPlot <-  ggplot(birdData, aes(x=birdDensity, colour= factor(dataset, levels=c("BC", "AB")))) +
+nfBirdData <- birdData[forestedStatus == "0"]
+
+  nfDensityPlot <-  ggplot(nfBirdData, aes(x=birdDensity, colour= factor(dataset, levels=c("BC", "AB")))) +
   geom_density(linewidth = 1.5) +
-    facet_wrap(  ~ factor(uniqueClasses, 
-                          levels=c("0_0", "1_1", "0_1", "1_2", "0_2", "1_3", "0_3", "1_4", "0_4", "1_5", "0_5", "1_6", "0_6", "1_7"), 
-                          labels=c( "0_0" = "Forested", "1_1" = "Black Spruce", "0_1" = "Water/Ice", "1_2" = "Black Spruce Wet", "0_2"  = "Wetland", "1_3" =  "Conifer Mix", "0_3" = "Anthro/Exposed",  "1_4" = "Deciduous","0_4" = "Grass/Crop", "1_5" = "Mixed", "0_5" = "Shrub","1_6" = "Pine",  "0_6" = "Bryoid", "1_7" = "White Spruce")), 
-                 scales = "free_y", ncol = 2) +
+    facet_nested_wrap( ~  uniqueClasses,
+                       labeller = labeller(uniqueClasses = class.labs),
+                       ncol = 6) +
     theme_classic() +
-  ggtitle("Density plots of predicted ovenbird density \nby cover class") +
+  ggtitle("Density plots of predicted ovenbird density by cover class") +
     xlab("Predicted bird density (males/ha)")  +
     scale_x_continuous(breaks= pretty_breaks()) +
-    ylab("Density of value") +
-    scale_y_continuous(breaks= pretty_breaks()) +
+    ylab("Prevalence of value") +
+    scale_y_continuous( trans='sqrt', breaks= pretty_breaks()) +
    scale_colour_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
     theme(title = element_text(size = 16),
@@ -1788,12 +2068,58 @@ names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "
            strip.background = element_rect(
           color="white", fill="white", linewidth =1.5),
           legend.title = element_blank(),
-          legend.position="bottom",
-          axis.text = element_text(size = 12),
+          legend.position= "none",
+          axis.text.x =  element_text(size = 12, angle = 45, hjust = 1),
+          axis.text.y =  element_text(size = 12),
           axis.title = element_text(size = 14),
-          plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
+          plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+        axis.line.y = element_line(linewidth = 1))
 
-   densityPlot
+     nfDensityPlot
+   
+  forBirdData <- birdData[forestedStatus == "1"]
+
+  forDensityPlot <-  ggplot(forBirdData, aes(x=birdDensity, colour= factor(dataset, levels=c("BC", "AB")))) +
+  geom_density(linewidth = 1.5) +
+    facet_nested_wrap( ~  uniqueClasses,
+                       labeller = labeller(uniqueClasses = class.labs),
+                       ncol = 7) +
+    theme_classic() +
+  ggtitle("Density plots of predicted ovenbird density by cover class") +
+    xlab("Predicted bird density (males/ha)")  +
+    scale_x_continuous(breaks= pretty_breaks()) +
+    ylab("Prevalence of value") +
+    scale_y_continuous( trans='sqrt', breaks= pretty_breaks()) +
+   scale_colour_manual(values=c("#009E73", "#56B4E9"), 
+                      labels = c( "British Columbia", "Alberta")) +
+    theme(title = element_text(size = 16),
+          strip.text = element_text(
+        size = 14),
+           strip.background = element_rect(
+          color="white", fill="white", linewidth =1.5),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          axis.text.x =  element_text(size = 12, angle = 45, hjust = 1),
+          axis.text.y =  element_text(size = 12),
+          axis.title = element_text(size = 14),
+          plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+        axis.line.y = element_line(linewidth = 1))
+
+   forDensityPlot
+   
+   
+   allMatrixPlot <- ggarrange(nfDensityPlot +
+                             theme(axis.title.x = element_blank(),
+                                   title = element_blank()
+                                   )
+                           ,
+                           forDensityPlot +
+                             theme(title = element_blank())
+                           ,
+                           ncol = 1,
+                           labels = c("A", "B"),
+                           label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+                            ) 
 #jpeg("densityPlot_OVEN.jpg")
 
 ```
@@ -1882,30 +2208,35 @@ birdDataNew <- as.data.table(unite(birdDataNew, landAgeClass, c(uniqueClasses, a
 dataset <- rep("BC", each = nrow(birdDataNew))
 birdDataNew_2 <- cbind(birdDataNew, dataset)
 
-birdDataNew <- rbind(birdDataNew_1, birdDataNew_2)
+
+# birdDataNew <- rbind(birdDataNew_2, birdDataNew_1)
 
 #make density plot of single land class
 
-OVEN_1_4 <- birdDataNew[uniqueClasses == "1_4"]
-OVEN_1_4
+OVEN_1_4_AB <- birdDataNew_1[uniqueClasses == "1_4"]
+OVEN_1_4_AB
+
+OVEN_1_4_BC <- birdDataNew_2[uniqueClasses == "1_4"]
+OVEN_1_4_BC
 
 # New facet label names for detase tNames
-class.labs <- c("Alberta", "British Columbia")
-names(class.labs) <- c("AB", "BC")
+class.labs <- c( "British Columbia", "Alberta")
+names(class.labs) <- c("BC","AB" )
 
-densityPlot_OVEN_1_4 <-  ggplot(OVEN_1_4, aes(x=birdDensity, colour=ageClass)) +
+densityPlot_OVEN_1_4_AB <-  ggplot(OVEN_1_4_AB, 
+                                aes(x=birdDensity,
+                                    colour=ageClass)) +
   geom_density(alpha=.25, ) +
-  #geom_density(color="darkblue", fill="white")
-  facet_wrap( ~ dataset, nrow = 2,
-              labeller = labeller(dataset = class.labs),
-              scales = "free_y") +
+  # #geom_density(color="darkblue", fill="white")
+  # #facet_wrap( ~ factor(dataset, labels = c( "British Columbia", "Alberta"), levels = c("BC","AB" )), nrow = 2,
+  #             scales = "free_y") +
   scale_colour_manual(name='Age (yrs)',labels=c("0-20", "21-40", "41-60", "61-80", "81-100", "101-120", "121-140", "141-160", "161+"), values = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "black")) +
   # scale_fill_discrete(breaks=c("1", "2", "3", "4", "5", "6", "7", "8", "9"),
   #                     labels=c("0-20", "21-40", "41-60", "61-80", "81-100", "101-120", "121-140", "141-160", "161+")) +
   theme_classic() +
   geom_density(linewidth = 1.5)+
   # scale_color_manual(values=c("#C7E9C0", "#A1D99B", "#74C476", "#41AB5D", "#238B45", "#005A32"))+
-  ggtitle("Density plot of predicted ovenbird density \nin deciduous forest, by age") +
+  ggtitle("Distribution of ovenbird density values \nin deciduous forest, by age") +
   xlab("Predicted bird density (males/ha)")  +
   scale_x_continuous(breaks= pretty_breaks()) +
   ylab("Density of value") +
@@ -1916,12 +2247,77 @@ densityPlot_OVEN_1_4 <-  ggplot(OVEN_1_4, aes(x=birdDensity, colour=ageClass)) +
           size = 14),
         strip.background = element_rect(
           color="white", fill="white", linewidth =1.5),
-        #legend.title = element_text("Age (yrs)"),
+         legend.position= "none",
+        legend.title = element_text("Age (yrs)"),
         axis.text = element_text(size = 12),
         axis.title = element_text(size = 14),
-        plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
+        plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+        axis.line.y = element_line(linewidth = 1))
 
-densityPlot_OVEN_1_4
+
+densityPlot_OVEN_1_4_BC <-  ggplot(OVEN_1_4_BC, 
+                                aes(x=birdDensity,
+                                    colour=ageClass)) +
+  geom_density(alpha=.25, ) +
+  # #geom_density(color="darkblue", fill="white")
+  # #facet_wrap( ~ factor(dataset, labels = c( "British Columbia", "Alberta"), levels = c("BC","AB" )), nrow = 2,
+  #             scales = "free_y") +
+  scale_colour_manual(name='Age (yrs)',labels=c("0-20", "21-40", "41-60", "61-80", "81-100", "101-120", "121-140", "141-160", "161+"), values = c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "black")) +
+  # scale_fill_discrete(breaks=c("1", "2", "3", "4", "5", "6", "7", "8", "9"),
+  #                     labels=c("0-20", "21-40", "41-60", "61-80", "81-100", "101-120", "121-140", "141-160", "161+")) +
+  theme_classic() +
+  geom_density(linewidth = 1.5)+
+  # scale_color_manual(values=c("#C7E9C0", "#A1D99B", "#74C476", "#41AB5D", "#238B45", "#005A32"))+
+  ggtitle("Distribution of ovenbird density values \nin deciduous forest, by age") +
+  xlab("Predicted bird density (males/ha)")  +
+  scale_x_continuous(breaks= pretty_breaks()) +
+  ylab("Density of value") +
+  #scale_colour_manual(values = cbPalette) +
+  scale_y_continuous(breaks= pretty_breaks()) +
+  theme(title = element_text(size = 16),
+        strip.text = element_text(
+          size = 14),
+        strip.background = element_rect(
+          color="white", fill="white", linewidth =1.5),
+        legend.title = element_text("Age (yrs)"),
+        axis.text = element_text(size = 12),
+        legend.position= "right",
+        axis.title = element_text(size = 14),
+        plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+        axis.line.y = element_line(linewidth = 1))
+
+densityPlot_OVEN_1_4_AB
+densityPlot_OVEN_1_4_BC
+
+allMatrixPlot <- plot_grid(densityPlot_OVEN_1_4_BC +
+                             theme(axis.title.x = element_blank(),
+                                   legend.position="none",
+                                   title = element_blank()
+                                                                     )
+                           ,
+                           densityPlot_OVEN_1_4_AB +
+                             theme(title = element_blank(),
+                                   legend.position="none"
+                                   )
+                           ,
+                           nrow = 2,
+                           labels = c("A", "B")
+                           # #legend.grob = get_legend(densityPlot_OVEN_1_4_BC),
+                           # common.legend = TRUE,
+                           # #legend = "bottom",
+                            #label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+                            ) 
+
+legend <- get_legend(
+  # create some space to the left of the legend
+  densityPlot_OVEN_1_4_BC + 
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom") 
+)
+
+allMatrixPlot <- plot_grid(allMatrixPlot, legend, ncol = 1, rel_heights = c(1, .1))
+
+allMatrixPlot 
 # #jpeg("2DdensityPlot_OVEN_1_3.4.jpg")
 # ggsave("densityPlot_OVEN_1_3.4.jpg",
 #        plot = densityPlot_OVEN_1_3.4,
@@ -1929,42 +2325,7 @@ densityPlot_OVEN_1_4
 
 
 
-#make density plot of single land age class
 
-#good example : 1_5.4 (but in an extraploated age class for AB)
-#bad example: 1_4.2
-
-# OVEN_1_3.4 <- birdDataNew[landAgeClass == "1_3.4"]
-# OVEN_1_3.4
-# 
-# densityPlot_OVEN_1_3.4 <-  ggplot(OVEN_1_3.4, aes(x=birdDensity, color=factor(dataset))) +
-#   geom_density(alpha=.25, linewidth = 1.5) +
-#   # facet_wrap( ~ forestedStatus + landAgeClass,
-#   #             labeller = labeller( forestedStatus = raster.labs),
-#   #             scales = "free") +
-#   theme_classic() +
-#   ggtitle("Density plot for Ovenbird in conifer mixed forest, aged 61-80 yrs") +
-#   xlab("Predicted bird density")  +
-#   scale_x_continuous(breaks= pretty_breaks()) +
-#   ylab("Density of value") +
-#   scale_y_continuous(breaks= pretty_breaks()) +
-#   scale_color_manual(values=c("#56B4E9", "#009E73"),name="Study Area", labels=c("Alberta", "British Columbia")) +
-#   theme(title = element_text(size = 14),
-#         strip.text.x = element_text(
-#           size = 12),
-#         strip.background = element_rect(
-#           color="white", fill="white", linewidth =1.5),
-#         legend.title = element_text(size = 10),
-#         axis.text.x = element_text(size = 10),
-#         axis.title = element_text(size = 12))
-# 
-# densityPlot_OVEN_1_3.4
-# # #jpeg("2DdensityPlot_OVEN_1_3.4.jpg")
-# # ggsave("densityPlot_OVEN_1_3.4.jpg",
-# #        plot = densityPlot_OVEN_1_3.4,
-# #        device = "jpeg")
-# 
-# 
 
 ```
 
@@ -2193,10 +2554,10 @@ assumptionsByClass <- unite(assumptionsByClass, dataset, c(binningType, ageClass
                                 aes(fill = factor(studyArea, levels=c("BC", "AB")), y= propBirdsUnimodal, x= dataset)) + 
     geom_boxplot() +
     geom_jitter(color="black", size=0.4, alpha=0.9) +
-    ggtitle("Proportion of bird species per class \nwith a unimodal distribution") +
+    ggtitle("Proportion of bird species per class \nwith a unimodal distribution (p < 0.05)") +
     xlab("Species")  +
-     scale_x_discrete(labels=c("1DBins_20" = "1D bins", "2DBins_10" = "2D bins \n(10yr)", "2DBins_20" = "2D bins \n(20yr)"))  + 
-    ylab("Proportion of bird species unimodal (p < 0.05)") +
+     scale_x_discrete(labels=c("1DBins_20" = "1D", "2DBins_10" = "2D\n(10-yr)", "2DBins_20" = "2D\n(20-yr)"))  + 
+    ylab("Proportion of species unimodal") +
     scale_y_continuous(breaks= pretty_breaks()) +
     theme_classic() + 
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
@@ -2284,11 +2645,11 @@ plotRelInf <- ggplot(data = statsGBM,
                                 y= relInfAge, 
                                 x= ageClasses)) + 
     geom_boxplot() +
-    ggtitle("Distribution across bird species of the relative \ninfluence of age as opposed to forest class") +
+    ggtitle("Relative influence of forest age \namong species") +
     #xlab()  +
     ylab("Relative influence of age (%)") +
     scale_y_continuous(breaks= pretty_breaks()) +
-    scale_x_discrete(labels=c("10" = "10 yr age \nclasses", "20" = "20 yr age \nclasses"))  + 
+    scale_x_discrete(labels=c("10" = "10-yr age \nclasses", "20" = "20-yr age \nclasses"))  + 
     theme_classic() + 
    scale_fill_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
@@ -2349,11 +2710,11 @@ plotFrH <- ggplot(data = statsGBM,
                                 y= FriedmansHStat, 
                                 x= ageClasses)) + 
     geom_boxplot() +
-    ggtitle("Distribution across bird species \nof Friedman's H-statistic") +
+    ggtitle("Interaction between forest class and age \nacross species") +
     #xlab()  +
     ylab("Friedman's H-statistic") +
     scale_y_continuous(breaks= pretty_breaks()) +
-    scale_x_discrete(labels=c("10" = "10 yr age \nclasses", "20" = "20 yr age \nclasses"))  + 
+    scale_x_discrete(labels=c("10" = "10-yr age \nclasses", "20" = "20-yr age \nclasses"))  + 
     theme_classic() + 
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
@@ -2371,6 +2732,130 @@ plotFrH <- ggplot(data = statsGBM,
    
    
 ```
+
+
+
+## Both rel inf and friedman
+```{r plotBothRelInfAndFriedmansH, echo=FALSE}
+
+
+# statsGBM_AB10 <- as.data.frame(read_csv("Results/PS results AB 10 yr age classes boot ras/statsGBM"))
+# studyArea <- rep("AB", each = nrow(statsGBM_AB10))
+# ageClasses <- rep("10", each = nrow(statsGBM_AB10))
+# statsGBM_AB10 <- cbind(statsGBM_AB10, studyArea, ageClasses)
+
+
+statsGBM_AB20 <- as.data.frame(read_csv("Results/PS results AB 20 yr age classes boot ras/statsGBM"))
+studyArea <- rep("AB", each = nrow(statsGBM_AB20))
+ageClasses <- rep("20", each = nrow(statsGBM_AB20))
+statsGBM_AB20 <- cbind(statsGBM_AB20, studyArea, ageClasses)
+
+
+# statsGBM_BC10 <- as.data.frame(read_csv("Results/PS results BC 10 yr age classes boot ras/statsGBM"))
+# studyArea <- rep("BC", each = nrow(statsGBM_BC10))
+# ageClasses <- rep("10", each = nrow(statsGBM_BC10))
+# statsGBM_BC10 <- cbind(statsGBM_BC10, studyArea, ageClasses)
+
+
+statsGBM_BC20 <- as.data.frame(read_csv("Results/PS results BC 20 yr age classes boot ras/statsGBM"))
+studyArea <- rep("BC", each = nrow(statsGBM_BC20))
+ageClasses <- rep("20", each = nrow(statsGBM_BC20))
+statsGBM_BC20 <- cbind(statsGBM_BC20, studyArea, ageClasses)
+
+
+statsGBM <- rbind( statsGBM_AB20, statsGBM_BC20)
+#statsGBM$ageClasses <- as.numeric(statsGBM$ageClasses)
+
+# autoCorStats <- gather(data=statsGBM, key="binningType", value="autocorStat", autocor1DRes, autocor2DRes, -studyArea, -ageClasses, -birdSp)
+# autoCorStats <- unite(autoCorStats, dataset, c(binningType, ageClasses), remove=FALSE)
+
+statsRelInf <- statsGBM[,c(2,5:7)]
+statsRelInf <-na.omit(statsRelInf)
+# 
+plotRelInf <- ggplot(data = statsRelInf,
+                            aes(fill = factor(studyArea, levels=c("BC", "AB")),
+                                y= relInfAge,
+                                x= ageClasses)) +
+    geom_boxplot() +
+    ggtitle("Relative influence of forest age \namong species") +
+    #xlab()  +
+    ylab("Relative influence of age (%)") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    #scale_x_discrete(labels=c("20" = "20-yr age \nclasses"))  +
+    theme_classic() +
+   scale_fill_manual(values=c("#009E73", "#56B4E9"),
+                      labels = c( "British Columbia", "Alberta")) +
+    theme(title = element_text(size = 16),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          legend.text = element_text(size =14),
+          axis.text.x = element_blank(),
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.line.y = element_line(linewidth = 1),
+          axis.ticks.x = element_blank(),
+          plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+          axis.title.x = element_blank()
+          )
+
+ plotRelInf 
+ 
+ 
+statsFriH <- statsGBM[,c(2,3,6,7)]
+statsFriH <-na.omit(statsFriH)
+
+plotFrH <- ggplot(data = statsFriH,
+                            aes(fill = factor(studyArea, levels=c("BC", "AB")), 
+                                y= FriedmansHStat, 
+                                x= ageClasses)) + 
+    geom_boxplot() +
+    ggtitle("Interaction between forest class and age \nacross species") +
+    #xlab()  +
+    ylab("Friedman's H-statistic") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    #scale_x_discrete(labels=c("10" = "10-yr age \nclasses", "20" = "20-yr age \nclasses"))  + 
+    theme_classic() + 
+    scale_fill_manual(values=c("#009E73", "#56B4E9"), 
+                      labels = c( "British Columbia", "Alberta")) +
+    theme(title = element_text(size = 16),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          legend.text = element_text(size =14),
+          axis.text.x = element_blank(), 
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.line.y = element_line(linewidth = 1),
+          axis.ticks.x = element_blank(),
+          plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
+          axis.title.x = element_blank()
+          )
+
+ plotFrH
+
+
+
+#plot_grid(plotRelInf, plotFrH, labels = c('A', 'B'), label_size = 12)
+  dev.new() 
+  allMatrixPlot <- ggarrange(plotFrH +
+                             theme(axis.text.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotRelInf +
+                             theme(title = element_blank())
+                           ,
+                           ncol = 1,
+                           labels = c("A", "B"),
+                           label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+                            ) 
+  
+
+
+```
+
+
+
 
 ## PLOTS OF MAP STATS
 
@@ -2412,14 +2897,14 @@ plotSpearmanStats <- ggplot(data = spearmanStats,
                                 y= spearmanStat, 
                                 x= dataset)) + 
     geom_boxplot() +
-    ggtitle("Distribution across bird species of Spearman's \ncoefficient (ρ) of correlation between the BAM \nnational model and mapped predictions") +
+    ggtitle("Correlation between BAM national models \nand mapped predictions, across bird species") +
     #xlab()  +
-    scale_x_discrete(labels=c("spearman1D_20" = "1D bins", "spearman2D_10" = "2D bins \n(10yr)", "spearman2D_20" = "2D bins \n(20yr)"))  + 
+    scale_x_discrete(labels=c("spearman1D_20" = "1D", "spearman2D_10" = "2D \n(10-yr)", "spearman2D_20" = "2D \n(20-yr)"))  + 
     ylab("Spearman's coefficient (ρ)") +
     scale_y_continuous(breaks= pretty_breaks()) +
     theme_classic() + 
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
-                      labels = c( "British Columbia \n(df=1430246)", "Alberta \n(df=189408)")) +
+                      labels = c( "British Columbia", "Alberta")) +
     theme(title = element_text(size = 15),
           legend.title = element_blank(),
           legend.position= "bottom",
@@ -2438,7 +2923,7 @@ plotSpearmanStats <- ggplot(data = spearmanStats,
 
 #autocor Stats (all datasets)
 ```{r plotAutocorStats, echo=FALSE}
-dev.new()
+
 resStats_AB10 <- as.data.frame(read_csv("Results/PS results AB 10 yr age classes boot ras/resStats.csv"))
 studyArea <- rep("AB", each = nrow(resStats_AB10))
 ageClasses <- rep("10", each = nrow(resStats_AB10))
@@ -2478,11 +2963,11 @@ plotAutocorStats <- ggplot(data = autoCorStats,
                                 y= autocorStat, 
                                 x= dataset)) + 
     geom_boxplot() +
-    ggtitle("Distribution across bird species of Moran's I test \nfor spatial autocorrelation among mapped residuals") +
+    ggtitle("Spatial autocorrelation of mapped residuals, \nacross bird species") +
     #xlab()  +
     ylab("Moran's I") +
     scale_y_continuous(breaks= pretty_breaks()) +
-    scale_x_discrete(labels=c("autocor1DRes_20" = "1D bins", "autocor2DRes_10" = "2D bins \n(10yr)", "autocor2DRes_20" = "2D bins \n(20yr)"))  + 
+    scale_x_discrete(labels=c("autocor1DRes_20" = "1D", "autocor2DRes_10" = "2D \n(10-yr)", "autocor2DRes_20" = "2D \n(20-yr)"))  + 
     theme_classic() + 
     scale_fill_manual(values=c("#009E73", "#56B4E9"), 
                       labels = c( "British Columbia", "Alberta")) +
@@ -2573,25 +3058,271 @@ plotMedRes <- ggplot(data = medResStats,
 ```
 
 
+#Combined unimodality, spearman and morans 
+
+```{r plotCombinedUnimodSpearAndMoran, echo=FALSE}
+
+#get data tables needed
+assumptionsByClass1D_1 <- as.data.table(read_csv("Results/PS results AB 20 yr age classes boot ras/assumptionsByClass1D.csv"))
+assumptionsByClass1D_1 <- assumptionsByClass1D_1[7:13]
+assumptionsByClass1D_1  <- droplevels(assumptionsByClass1D_1)
+studyArea <- rep("AB", each = nrow(assumptionsByClass1D_1))
+ageClasses <- rep("20", each = nrow(assumptionsByClass1D_1))
+assumptionsByClass1D_1 <- cbind(assumptionsByClass1D_1, studyArea, ageClasses)
+names(assumptionsByClass1D_1)[names(assumptionsByClass1D_1) == 'uniqueClasses'] <- 'landAgeClass'
+
+assumptionsByClass1D_2 <- as.data.table(read_csv("Results/PS results BC 20 yr age classes boot ras/assumptionsByClass1D.csv"))
+assumptionsByClass1D_2 <- assumptionsByClass1D_2[7:13]
+assumptionsByClass1D_2  <- droplevels(assumptionsByClass1D_2)
+studyArea <- rep("BC", each = nrow(assumptionsByClass1D_2))
+ageClasses <- rep("20", each = nrow(assumptionsByClass1D_2))
+assumptionsByClass1D_2 <- cbind(assumptionsByClass1D_2, studyArea, ageClasses)
+names(assumptionsByClass1D_2)[names(assumptionsByClass1D_2) == 'uniqueClasses'] <- 'landAgeClass'
+
+# assumptionsByClass2D_1 <- as.data.frame(read_csv("Results/PS results AB 10 yr age classes boot ras/assumptionsByClass2D.csv"))
+# studyArea <- rep("AB", each = nrow(assumptionsByClass2D_1))
+# ageClasses <- rep("10", each = nrow(assumptionsByClass2D_1))
+# assumptionsByClass2D_1 <- cbind(assumptionsByClass2D_1, studyArea, ageClasses)
+
+assumptionsByClass2D_2 <- as.data.frame(read_csv("Results/PS results AB 20 yr age classes boot ras/assumptionsByClass2D.csv"))
+studyArea <- rep("AB", each = nrow(assumptionsByClass2D_2))
+ageClasses <- rep("20", each = nrow(assumptionsByClass2D_2))
+assumptionsByClass2D_2 <- cbind(assumptionsByClass2D_2, studyArea, ageClasses)
+
+# assumptionsByClass2D_3 <- as.data.frame(read_csv("Results/PS results BC 10 yr age classes boot ras/assumptionsByClass2D.csv"))
+# studyArea <- rep("BC", each = nrow(assumptionsByClass2D_3))
+# ageClasses <- rep("10", each = nrow(assumptionsByClass2D_3))
+# assumptionsByClass2D_3 <- cbind(assumptionsByClass2D_3, studyArea, ageClasses)
+
+assumptionsByClass2D_4 <- as.data.frame(read_csv("Results/PS results BC 20 yr age classes boot ras/assumptionsByClass2D.csv"))
+studyArea <- rep("BC", each = nrow(assumptionsByClass2D_4))
+ageClasses <- rep("20", each = nrow(assumptionsByClass2D_4))
+assumptionsByClass2D_4 <- cbind(assumptionsByClass2D_4, studyArea, ageClasses)
+
+assumptionsByClass <- rbind(assumptionsByClass1D_1, assumptionsByClass1D_2, assumptionsByClass2D_2, assumptionsByClass2D_4)
+assumptionsByClass <- unite(assumptionsByClass, dataset, c(binningType, ageClasses), remove=FALSE)
+
+ #normality plot
+   plotUnimodality <- ggplot(data = assumptionsByClass, 
+                                aes(fill = factor(studyArea, levels=c("BC", "AB")), y= propBirdsUnimodal, x= dataset)) + 
+    geom_boxplot() +
+    geom_jitter(color="black", size=0.4, alpha=0.9) +
+    ggtitle("Proportion of bird species per class \nwith a unimodal distribution (p < 0.05)") +
+    xlab("Species")  +
+     scale_x_discrete(labels=c("1DBins_20" = "1D", "2DBins_20" = "2D"))  + 
+    ylab("Proportion of \nspecies unimodal") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    theme_classic() + 
+    scale_fill_manual(values=c("#009E73", "#56B4E9"), 
+                      labels = c( "British Columbia", "Alberta")) +
+  theme(title = element_text(size = 16),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          legend.text = element_text(size =14),
+          axis.text.x = element_text(size = 14, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.title.x = element_blank(),
+          plot.margin = margin(0.5,0.5,0,0.5, "cm"),
+         axis.line.y = element_line(linewidth = 1))
+
+   plotUnimodality
+
+##################################################################
+   
+#    spearmanStats_AB10 <- as.data.frame(read_csv("Results/PS results AB 10 yr age classes boot ras/spearmanStats.csv"))
+# studyArea <- rep("AB", each = nrow(spearmanStats_AB10))
+# ageClasses <- rep("10", each = nrow(spearmanStats_AB10))
+# spearmanStats_AB10 <- cbind(spearmanStats_AB10, studyArea, ageClasses)
+# spearmanStats_AB10[,2] <- NA
+
+spearmanStats_AB20 <- as.data.frame(read_csv("Results/PS results AB 20 yr age classes boot ras/spearmanStats.csv"))
+studyArea <- rep("AB", each = nrow(spearmanStats_AB20))
+ageClasses <- rep("20", each = nrow(spearmanStats_AB20))
+spearmanStats_AB20 <- cbind(spearmanStats_AB20, studyArea, ageClasses)
+
+# spearmanStats_BC10 <- as.data.frame(read_csv("Results/PS results BC 10 yr age classes boot ras/spearmanStats.csv"))
+# studyArea <- rep("BC", each = nrow(spearmanStats_BC10))
+# ageClasses <- rep("10", each = nrow(spearmanStats_BC10))
+# spearmanStats_BC10 <- cbind(spearmanStats_BC10, studyArea, ageClasses)
+# spearmanStats_BC10[,2] <- NA
+
+spearmanStats_BC20 <- as.data.frame(read_csv("Results/PS results BC 20 yr age classes boot ras/spearmanStats.csv"))
+studyArea <- rep("BC", each = nrow(spearmanStats_BC20))
+ageClasses <- rep("20", each = nrow(spearmanStats_BC20))
+spearmanStats_BC20 <- cbind(spearmanStats_BC20, studyArea, ageClasses)
+
+spearmanStats <- rbind( spearmanStats_AB20, spearmanStats_BC20)
+names(spearmanStats)[names(spearmanStats) == '...1'] <- 'birdSp'
+spearmanStats$ageClasses <- as.numeric(spearmanStats$ageClasses)
+
+spearmanStats <- gather(data=spearmanStats, key="binningType", value="spearmanStat", -studyArea, -ageClasses, -birdSp)
+spearmanStats <- unite(spearmanStats, dataset, c(binningType, ageClasses), remove=FALSE)
+spearmanStats <-na.omit(spearmanStats)
+
+plotSpearmanStats <- ggplot(data = spearmanStats,
+                            aes(fill = factor(studyArea, levels=c("BC", "AB")), 
+                                y= spearmanStat, 
+                                x= dataset)) + 
+    geom_boxplot() +
+    ggtitle("Correlation between BAM national models \nand mapped predictions, across bird species") +
+    #xlab()  +
+    scale_x_discrete(labels=c("spearman1D_20" = "1D", "spearman2D_20" = "2D"))  + 
+    ylab("Spearman's \ncoefficient (ρ)") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    theme_classic() + 
+    scale_fill_manual(values=c("#009E73", "#56B4E9"), 
+                      labels = c( "British Columbia", "Alberta")) +
+    theme(title = element_text(size = 15),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          legend.text = element_text(size =14),
+          axis.text.x = element_text(size = 12, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.title.x = element_blank(),
+          plot.margin = margin(0.5,0.5,0,0.5, "cm"),
+           axis.line.y = element_line(linewidth = 1))
+
+     plotSpearmanStats
+
+##################################################################
+     
+# resStats_AB10 <- as.data.frame(read_csv("Results/PS results AB 10 yr age classes boot ras/resStats.csv"))
+# studyArea <- rep("AB", each = nrow(resStats_AB10))
+# ageClasses <- rep("10", each = nrow(resStats_AB10))
+# resStats_AB10 <- cbind(resStats_AB10, studyArea, ageClasses)
+# resStats_AB10[,4] <- NA
+# resStats_AB10 <- resStats_AB10[,c(1,4:7)]
+
+resStats_AB20 <- as.data.frame(read_csv("Results/PS results AB 20 yr age classes boot ras/resStats.csv"))
+studyArea <- rep("AB", each = nrow(resStats_AB20))
+ageClasses <- rep("20", each = nrow(resStats_AB20))
+resStats_AB20 <- cbind(resStats_AB20, studyArea, ageClasses)
+resStats_AB20 <- resStats_AB20[,c(1,4:7)]
+
+# resStats_BC10 <- as.data.frame(read_csv("Results/PS results BC 10 yr age classes boot ras/resStats.csv"))
+# studyArea <- rep("BC", each = nrow(resStats_BC10))
+# ageClasses <- rep("10", each = nrow(resStats_BC10))
+# resStats_BC10 <- cbind(resStats_BC10, studyArea, ageClasses)
+# resStats_BC10[,4] <- NA
+# resStats_BC10 <- resStats_BC10[,c(1,4:7)]
+
+resStats_BC20 <- as.data.frame(read_csv("Results/PS results BC 20 yr age classes boot ras/resStats.csv"))
+studyArea <- rep("BC", each = nrow(resStats_BC20))
+ageClasses <- rep("20", each = nrow(resStats_BC20))
+resStats_BC20 <- cbind(resStats_BC20, studyArea, ageClasses)
+resStats_BC20 <- resStats_BC20[,c(1,4:7)]
+
+resStats <- rbind( resStats_AB20,  resStats_BC20)
+names(resStats)[names(resStats) == '...1'] <- 'birdSp'
+resStats$ageClasses <- as.numeric(resStats$ageClasses)
+
+autoCorStats <- gather(data=resStats, key="binningType", value="autocorStat", autocor1DRes, autocor2DRes, -studyArea, -ageClasses, -birdSp)
+autoCorStats <- unite(autoCorStats, dataset, c(binningType, ageClasses), remove=FALSE)
+autoCorStats <-na.omit(autoCorStats)
+
+plotAutocorStats <- ggplot(data = autoCorStats,
+                            aes(fill = factor(studyArea, levels=c("BC", "AB")), 
+                                y= autocorStat, 
+                                x= dataset)) + 
+    geom_boxplot() +
+    ggtitle("Spatial autocorrelation of mapped residuals, \nacross bird species") +
+    #xlab()  +
+    ylab("Moran's I \n") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    scale_x_discrete(labels=c("autocor1DRes_20" = "1D", "autocor2DRes_20" = "2D"))  + 
+    theme_classic() + 
+    scale_fill_manual(values=c("#009E73", "#56B4E9"), 
+                      labels = c( "British Columbia", "Alberta")) +
+    theme(title = element_text(size = 16),
+          legend.title = element_blank(),
+          legend.position= "bottom",
+          legend.text = element_text(size =14),
+          axis.text.x = element_text(size = 14), 
+          axis.text.y = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.title.x = element_blank(),
+          plot.margin = margin(0.5,0.5,0,0.5, "cm"),
+           axis.line.y = element_line(linewidth = 1))
+
+   plotAutocorStats
+
+ #################################################################  
+   dev.new()
+   
+     allMatrixPlot <- ggarrange(plotUnimodality +
+                             theme(axis.text.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotSpearmanStats +
+                             theme(axis.text.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotAutocorStats +
+                             theme(title = element_blank())
+                           ,
+                           ncol = 1,
+                           labels = c("A", "B", "C"),
+                           label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+                            ) 
+
+```
+
 ## RASTER VISUALISATION 
 
 
 ```{r plotExampleBirdRasters, echo=FALSE}
 
-library(sna)
 
-nmRas <- terra::rast("Results/PS results BC 20 yr age classes boot ras/OVEN-meanBoot_60")
-mapRas <- terra::rast("Results/PS results BC 20 yr age classes boot ras/OVEN-for2DAndNf1DMap")
-resRas <- terra::rast("Results/PS results BC 20 yr age classes boot ras/OVEN-for2DAndNf1DRes")
+
+#for BC
+
+bird <- "OVEN"
+
+nmRas <- terra::rast(paste0("Results/PS results BC 20 yr age classes boot ras/", bird,"-meanBoot_60"))
+mapRas <- terra::rast(paste0("Results/PS results BC 20 yr age classes boot ras/", bird, "-for2DAndNf1DMap"))
+resRas <- terra::rast(paste0("Results/PS results BC 20 yr age classes boot ras/", bird, "-for2DAndNf1DRes"))
+
+#ageRaster
+min_ = min(min(terra::unique(nmRas)), min(terra::unique(mapRas)), min(terra::unique(resRas)))
+max_ = max(max(terra::unique(nmRas)), max(terra::unique(mapRas)), max(terra::unique(resRas)))
+r.range = c(min_, max_)
+#colours <- colourRamp(colors = cbPalette, bias = 2)
+layout(matrix(c(1,2,3), 2, 3, byrow = TRUE),
+   widths=c(1,1,1.1), heights=c(1,3) )
+#nmRasBC <- plot(nmRas, main = 'National Model', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box=FALSE, breaks = c(-0.05, 0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25 )) 
+#mapRasBC <- plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE,breaks = c(-0.05, 0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25 ))  
+nmRasBC <- plot(nmRas, main = 'National Model', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box=FALSE, legend = FALSE, cex.main = 1.5 ) 
+mapRasBC <- plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)
+resRasBC <- plot(resRas, main = 'Residuals', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE, cex.main = 1.5, plg=list( cex = 1.25 # Legend text size
+            ))
+
+
+ 
+#for alberta
+
+bird <- "OVEN"
+
+nmRas <- terra::rast(paste0("Results/PS results AB 20 yr age classes boot ras/", bird,"-meanBoot_60"))
+mapRas <- terra::rast(paste0("Results/PS results AB 20 yr age classes boot ras/", bird, "-for2DAndNf1DMap"))
+resRas <- terra::rast(paste0("Results/PS results AB 20 yr age classes boot ras/", bird, "-for2DAndNf1DRes"))
 
 #ageRaster
 min_ = min(min(terra::unique(nmRas)), min(terra::unique(mapRas)), min(terra::unique(resRas)))
 max_ = max(max(terra::unique(nmRas)), max(terra::unique(mapRas)), max(terra::unique(resRas)))
 r.range = c(min_, max_)
 
-plot(nmRas, main = 'National Model', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box=FALSE) 
-plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE)  
-plot(resRas, main = 'Residual Raster', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE)  
+layout(matrix(c(1,2,3), 2, 3, byrow = TRUE),
+   widths=c(1,1,1.1), heights=c(1,3) )
 
+plot(nmRas, main = 'National Model', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box=FALSE, legend = FALSE, cex.main = 1.5 ) 
+plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)
+plot(resRas, main = 'Residuals', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE, cex.main = 1.5, plg=list( cex = 1.25 # Legend text size
+            ))
 
 ```
