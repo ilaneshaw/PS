@@ -300,6 +300,7 @@ do1DPreds <- function(sim) {
 
   #get bird datasets
   sim$birdDatasets <- lapply(X = P(sim)$birdList, FUN = function(bird){
+
     
     birdLayer <- eval(parse(text=paste("sim$birdRasters$", bird, sep = "")))
     landBirdRasters <- c(birdLayer, 
@@ -307,7 +308,7 @@ do1DPreds <- function(sim) {
                          sim$ageRaster, 
                          sim$FNFRaster)
     
-    
+    print(landBirdRasters)
     ## take the values from the rasters and input 
     ## them to a data table called cellValues
     cellValues <- terra::values(landBirdRasters, dataframe = TRUE)
@@ -315,25 +316,28 @@ do1DPreds <- function(sim) {
                                           "landForClass", 
                                           "age", 
                                           "forestedStatus"))
+    cellValues$landForClass <- as.factor(cellValues$landForClass) 
+    cellValues$forestedStatus <- as.factor(cellValues$forestedStatus)
+    
     cellValues <- unite(cellValues, 
                         uniqueClasses, 
                         c(forestedStatus, 
                           landForClass), 
                         remove=FALSE)
     
+    
     ## make sure landForClass and forestedStatus 
     ## are categorical rather than numerical
-    cellValues$landForClass <- as.factor(cellValues$landForClass) 
-    cellValues$forestedStatus <- as.factor(cellValues$forestedStatus)
     cellValues$uniqueClasses <- as.factor(cellValues$uniqueClasses)
     
     #get rid of any rows with NA values for bird density or landForClass
     cellValues <- cellValues[!is.na(cellValues$birdDensity), ]
     cellValues <- cellValues[!is.na(cellValues$landForClass), ]
+    print(unique(cellValues$uniqueClasses))
     
     nrowCV <- nrow(cellValues)
     cellValues$birdSp <- rep(bird, nrowCV)
-    
+    #print(cellValues)
     fileName <- paste(bird, "_fullDataset.csv")
     write.csv(cellValues, file =  file.path(outputFolderBirdPreds, fileName)) 
     
@@ -352,11 +356,11 @@ do1DPreds <- function(sim) {
  
   
   sim$birdPreds1D <- lapply(X = P(sim)$birdList, FUN = function(bird){ 
-   
-    print(bird)
+       print(bird)
   #get birdPreds1D
   singleBirdDataset <-  eval(parse(text=paste("sim$birdDatasets$", bird, sep = "")))
   singleBirdDataset <- as.data.table(singleBirdDataset)
+  #print(singleBirdDataset)
   birdStats <- singleBirdDataset[order(forestedStatus, 
                                        landForClass) 
                                  # order the rows by the land cover class
@@ -392,7 +396,7 @@ do1DPreds <- function(sim) {
                      c(forestedStatus, 
                        landForClass), 
                      remove=FALSE)
-  
+  print(birdStats)
   fileName <- paste(bird, "_birdPreds1D.csv")
   write.csv(birdStats, file =  file.path(outputFolderBirdPreds, fileName)) 
   
@@ -1192,9 +1196,9 @@ assess2D <- function(sim) {
     # ggqqplot(valsMaps$vals2DMap, ylab = "2D Map Prediction")
     
     spearman1D <-cor(valsMaps$valsNM, valsMaps$vals1DMap,  method = "spearman")
-    spearman1D
+    print(spearman1D)
     spearman2D <-cor(valsMaps$valsNM, valsMaps$vals2DMap,  method = "spearman")
-    spearman2D
+    print(spearman2D)
     
     spearmanStats <- matrix(c( spearman1D, spearman2D), ncol= 2, byrow=TRUE)
     colnames(spearmanStats) <- c( 'spearman1D', 'spearman2D')
@@ -1496,12 +1500,12 @@ assess2D <- function(sim) {
     
     #postProcess studyArea
     sim$studyArea <- reproducible::postProcess(studyArea,
-                                               destinationPath = downloadFolderArea,
-                                               filename2 = "studyArea", 
+                                               #destinationPath = P(sim)$studyAreaLocation,
+                                              # filename2 = "studyArea", 
                                                useTerra = TRUE,
                                                fun = "terra::vect", #use the function vect
                                                targetCRS = crs(sim$rasterToMatch), #make crs same as rasterToMatch
-                                               overwrite = TRUE,
+                                               #overwrite = FALSE,
                                                verbose = TRUE)
     
     #crop and mask rasterToMatch
@@ -1514,16 +1518,16 @@ assess2D <- function(sim) {
     print("get forClassRaster from Drive")
     sim$forClassRaster <- terra::rast(file.path(P(sim)$folderUrlForClass, P(sim)$nameForClassRaster))
     sim$forClassRaster <- postProcess(sim$forClassRaster,
-                                      destinationPath = downloadFolderForestClass,
+                                      #destinationPath = downloadFolderForestClass,
                                      #use the function raster
-                                     targetCRS = crs(sim$rasterToMatch),
+                                     #targetCRS = crs(sim$rasterToMatch),
                                      fun = "terra::rast",
                                      useTerra = TRUE,
                                      #use the specified rasterToMatch to reproject to
                                      rasterToMatch = sim$rasterToMatch,
-                                     #studyArea = sim$studyArea,
+                                     studyArea = sim$studyArea,
                                      useCache = getOption("reproducible.useCache", TRUE),
-                                     overwrite = TRUE,
+                                     #overwrite = TRUE,
                                      verbose = TRUE)
     
     names(sim$forClassRaster) <- c("forClassRaster")
@@ -1535,25 +1539,34 @@ assess2D <- function(sim) {
 
     #get non forest raster
     print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path(P(sim)$folderUrlNonFor, P(sim)$nameNonForRaster))
-    sim$nonForRaster <- postProcess(nonForRaster,
-                               destinationPath = downloadFolderForestClass,
-                               #use the function raster
-                               fun = "terra::rast",
-                               targetCRS = crs(sim$rasterToMatch),
-                               #use the specified rasterToMatch to reproject to
-                               rasterToMatch = sim$rasterToMatch,
-                               useTerra = TRUE,
-                               #studyArea = sim$studyArea,
-                               useCache = getOption("reproducible.useCache", TRUE),
-                               overwrite = TRUE,
-                               verbose = TRUE)
-    
+    sim$nonForRaster <- terra::rast(file.path(P(sim)$folderUrlNonFor, P(sim)$nameNonForRaster))
+    sim$nonForRaster <- terra::mask(terra::crop(sim$nonForRaster, sim$studyArea), sim$studyArea) 
+    # sim$nonForRaster <- postProcess(sim$nonForRaster,
+    #                                 #destinationPath = downloadFolderForestClass,
+    #                                 #use the function raster
+    #                                 #targetCRS = crs(sim$rasterToMatch),
+    #                                 fun = "terra::rast",
+    #                                 useTerra = TRUE,
+    #                                 #use the specified rasterToMatch to reproject to
+    #                                 rasterToMatch = sim$rasterToMatch,
+    #                                 studyArea = sim$studyArea,
+    #                                 useCache = getOption("reproducible.useCache", TRUE),
+    #                                 #overwrite = TRUE,
+    #                                 verbose = TRUE)
+    # 
     #nonForRaster[nonForRaster == 0] <- NA
     
     names(sim$nonForRaster) <- c("nonForRaster")
+    print(sim$nonForRaster)
+    Plot(sim$nonForRaster, na.color = "blue")
+    print(terra::unique(sim$nonForRaster))
     sim$nonForRaster <- terra::mask(sim$nonForRaster, sim$forClassRaster, inverse = TRUE)
-    # sim$nonForRaster <- overlay(x = nonForRaster,
+   
+    print(sim$nonForRaster)
+    Plot(sim$nonForRaster, na.color = "blue")
+    print(terra::unique(sim$nonForRaster))
+    
+     # sim$nonForRaster <- overlay(x = nonForRaster,
     #                         y = sim$forClassRaster,
     #                         fun = function(x, y) {
     #                           x[!is.na(y[])] <- NA
@@ -1567,7 +1580,7 @@ assess2D <- function(sim) {
     print("get ageRaster from Drive")
     ageRaster <- terra::rast(file.path(P(sim)$folderUrlAge, P(sim)$nameAgeRaster))
     sim$ageRaster <- postProcess(ageRaster,
-                                destinationPath = downloadFolderForestClass,
+                                #destinationPath = downloadFolderForestClass,
                                 #use the function raster
                                 useTerra = TRUE,
                                 fun = "terra::rast",
@@ -1576,7 +1589,7 @@ assess2D <- function(sim) {
                                 rasterToMatch = sim$rasterToMatch,
                                 #studyArea = sim$studyArea,
                                 useCache = getOption("reproducible.useCache", TRUE),
-                                overwrite = TRUE,
+                                #overwrite = TRUE,
                                 verbose = TRUE)
     
     names(sim$ageRaster) <- c("ageRaster")
@@ -1612,9 +1625,9 @@ assess2D <- function(sim) {
                                              rasterToMatch = sim$rasterToMatch,
                                              useTerra = TRUE,
                                              fun = "terra::rast",
-                                             destinationPath = downloadFolderBird,
-                                             filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
-                                             overwrite = TRUE,
+                                             #destinationPath = downloadFolderBird,
+                                             #filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
+                                             #overwrite = TRUE,
                                              verbose = TRUE)
       # clearPlot()
       # Plot(proRaster, na.color= "grey")
@@ -1626,14 +1639,14 @@ assess2D <- function(sim) {
     
   }
   
-  
+ 
   
   #make landscape raster
   print("make landscapeRaster")
   sim$landscapeRaster <- terra::cover(x = sim$forClassRaster, y = sim$nonForRaster)
   
   names(sim$landscapeRaster) <- c("landscapeRaster")
-  
+  print(terra::unique(sim$landscapeRaster))
   # clearPlot()
   # Plot(sim$landscapeRaster, na.color= "grey")
  

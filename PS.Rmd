@@ -171,8 +171,8 @@ simPaths <- getPaths()
 
 
 #parameters from local
-#birdList <- sort(c("CAWA", "OVEN"))
-birdList <- sort(c("ALFL", "AMCR", "AMGO", "AMRO", "BANS", "BAOR", "BARS", "BAWW", "BBMA", "BBWA", "BBWO", "BCCH", "BHCO", "BHVI", "BLBW", "BLJA", "BLPW", "BOBO", "BOCH", "BOWA", "BRBL", "BRCR", "BTNW", "CAWA", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COGR", "CONW", "CORA", "COYE", "CSWA", "DEJU", "EAKI", "EUST", "FOSP", "GCKI", "GRAJ", "GRCA", "HAFL", "HAWO", "HETH", "HOLA", "HOSP", "HOWR", "KILL", "LCSP", "LEFL", "MOWA", "OVEN", "PAWA", "PHVI", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "WETA", "WIWR", "YRWA"))
+birdList <- sort(c("CAWA", "OVEN"))
+#birdList <- sort(c("ALFL", "AMCR", "AMGO", "AMRO", "BANS", "BAOR", "BARS", "BAWW", "BBMA", "BBWA", "BBWO", "BCCH", "BHCO", "BHVI", "BLBW", "BLJA", "BLPW", "BOBO", "BOCH", "BOWA", "BRBL", "BRCR", "BTNW", "CAWA", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COGR", "CONW", "CORA", "COYE", "CSWA", "DEJU", "EAKI", "EUST", "FOSP", "GCKI", "GRAJ", "GRCA", "HAFL", "HAWO", "HETH", "HOLA", "HOSP", "HOWR", "KILL", "LCSP", "LEFL", "MOWA", "OVEN", "PAWA", "PHVI", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "WETA", "WIWR", "YRWA"))
 rasterToMatchLocation <- inputsDir
 rasterToMatchName <- "LCC2005_V1_4a.tif"
 studyAreaLocation <- downloadFolderArea
@@ -180,7 +180,7 @@ nameBCR <- "60"
 .studyAreaName <- "studyAreaAB.shp"
 nameForClassRaster <-  "vegTypesRas_ABNew_0722.tif"
 folderUrlForClass = downloadFolderForestClass
-nameNonForRaster = "nonForestRas_ABNew_0722.tif"
+nameNonForRaster = "landClassRaster_AB_202305.tif"
 folderUrlNonFor = downloadFolderForestClass
 nameAgeRaster = "ageRas_ABNew_0722.tif"
 folderUrlAge = downloadFolderForestClass
