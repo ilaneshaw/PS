@@ -158,10 +158,10 @@ simPaths <- getPaths()
 # archiveForClass <- "AB_rasters_kNN_2022.07.zip"
 # #specify non forest raster details
 # #specify file name
-# nameNonForRaster <- "nonForestRas_ABNew_0722.tif"
-# folderUrlNonFor  <-  "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
+# nameLandClassRaster <- "nonForestRas_ABNew_0722.tif"
+# folderUrlLandClass  <-  "https://drive.google.com/file/d/1GExTyIvk-B_nys6pwfcDhnHuaN-PvQu1/view?usp=sharing"
 # #give archive name
-# archiveNonFor  <- "AB_rasters_kNN_2022.07.zip"
+# archiveLandClass  <- "AB_rasters_kNN_2022.07.zip"
 # #specify age raster details
 # #specify file name
 # nameAgeRaster <- "ageRas_ABNew_0722.tif"
@@ -180,8 +180,8 @@ nameBCR <- "60"
 .studyAreaName <- "studyAreaAB.shp"
 nameForClassRaster <-  "vegTypesRas_ABNew_0722.tif"
 folderUrlForClass = downloadFolderForestClass
-nameNonForRaster = "landClassRaster_AB_202305.tif"
-folderUrlNonFor = downloadFolderForestClass
+nameLandClassRaster = "landClassRaster_AB_202305.tif"
+folderUrlLandClass = downloadFolderForestClass
 nameAgeRaster = "ageRas_ABNew_0722.tif"
 folderUrlAge = downloadFolderForestClass
 folderUrlBirdRaster <- downloadFolderBird
@@ -214,9 +214,9 @@ simParams <- list(
                nameForClassRaster = nameForClassRaster,
                folderUrlForClass = folderUrlForClass,
                #archiveForClass = archiveForClass,
-               nameNonForRaster = nameNonForRaster,
-               folderUrlNonFor = folderUrlNonFor,
-               #archiveNonFor = archiveNonFor,
+               nameLandClassRaster = nameLandClassRaster,
+               folderUrlLandClass = folderUrlLandClass,
+               #archiveLandClass = archiveLandClass,
                nameAgeRaster = nameAgeRaster,
                folderUrlAge = folderUrlAge
                #archiveAge = archiveAge
@@ -228,6 +228,7 @@ simParams <- list(
 ## Simulation setup
 mySim <- simInit(times = simTimes, params = simParams, 
                  modules = simModules, paths = simPaths)
+
 
 test <- spades(mySim)
 
