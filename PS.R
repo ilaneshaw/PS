@@ -127,11 +127,11 @@ doEvent.PS = function(sim, eventTime, eventType) {
         sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime, 
                              moduleName = "PS", eventType = "do1DPreds")
         sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime,
-                             moduleName = "PS", eventType = "map1D", .last())
+                             moduleName = "PS", eventType = "map1D")
         sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime,
-                             moduleName = "PS", eventType = "do2DPreds", .last() + 1)
-        # sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime, 
-        #                      moduleName = "PS", eventType = "map2D")
+                             moduleName = "PS", eventType = "do2DPreds")
+        sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime,
+                             moduleName = "PS", eventType = "map2D")
         # sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "PS", "plot")
         # sim <- scheduleEvent(sim, P(sim)$.saveInitialTime, "PS", "save")
       }
@@ -350,7 +350,7 @@ do1DPreds <- function(sim) {
     birdDataset$birdSp <- rep(bird, nrowCV)
     birdDataset$studyArea <- rep(P(sim)$.studyAreaName, nrowCV)
     #print(birdDataset)
-    fileName <- paste(P(sim)$.studyAreaName, "_", bird, "_fullDataset.csv")
+    fileName <- paste(P(sim)$.studyAreaName, "_", bird, "_fullDataset.csv", sep = "")
     write.csv(birdDataset, file =  file.path(outputFolderBirdPreds, fileName)) 
     
     print(paste(bird," dataset complete"))
@@ -408,7 +408,7 @@ do1DPreds <- function(sim) {
   
  
   print(birdStats)
-  fileName <- paste(P(sim)$studyAreaName, "_", bird, "_birdPreds1D.csv")
+  fileName <- paste(P(sim)$.studyAreaName, "_", bird, "_birdPreds1D.csv", sep = "")
   write.csv(birdStats, file =  file.path(outputFolderBirdPreds, fileName)) 
   
   return(birdStats)
@@ -427,7 +427,7 @@ map1D <- function(sim) {
   # sim$event1Test2 <- 999 # for dummy unit test
   # get summary of assumptions/stats for 1D 
   
- browser()
+
   #### MAP OUT 1D PREDICTIONS
   print("get 1DMaps")
   
@@ -436,12 +436,13 @@ map1D <- function(sim) {
   lc1DPreds <- lapply(X = P(sim)$birdList, FUN = function(bird) {
 
     #separate out data table rows that are forested, get rid of unnecessary forestedStatus column
-    landCoverDF <- as.data.table(eval(parse(text=paste("sim$birdPreds1D$", bird, sep = ""))))
-    landCoverDF <- landCoverDF[landCoverDF$FoLRaster == "landClass"]
-    landCoverDF <- landCoverDF[ , c(2,4)]
-    landCoverDF <- droplevels(landCoverDF)
+    landCoverDT <- as.data.table(eval(parse(text=paste("sim$birdPreds1D$", bird, sep = ""))))
+    landCoverDT <- landCoverDT[landCoverDT$FoLRaster == "landClass"]
+    landCoverDT <- landCoverDT[ , c(2,4)]
+    landCoverDT <- droplevels(landCoverDT)
+    landCoverDT$landForClass <- gsub("[^0-9]", "", landCoverDT$landForClass)
 
-    return(landCoverDF)
+    return(landCoverDT)
   })
 
   names(lc1DPreds) <- P(sim)$birdList
@@ -451,7 +452,7 @@ map1D <- function(sim) {
   print("make lc1DMaps")
   sim$lc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
     print(bird)
-browser()
+
     lcBirdPreds <- eval(parse(text=paste("lc1DPreds$", bird, sep = "")))
 
     #make numeric
@@ -479,14 +480,14 @@ browser()
   #get Forest 1D data together
   print("get for1DPreds")
   for1DPreds <- lapply(X = P(sim)$birdList, FUN = function(bird) {
-browser()
-    #separate out data table rows that are forested, get rid of unnecessary forestedStatus column
-    forestedDF <- as.data.table(eval(parse(text=paste("sim$birdPreds1D$", bird, sep = ""))))
-    forestedDF <- forestedDF[FoLRaster == "forClass"]
-    forestedDF  <- forestedDF[ , c(2,4)]
-    forestedDF <- droplevels(forestedDF)
 
-    return(forestedDF)
+    #separate out data table rows that are forested, get rid of unnecessary forestedStatus column
+    forestedDT <- as.data.table(eval(parse(text=paste("sim$birdPreds1D$", bird, sep = ""))))
+    forestedDT <- forestedDT[FoLRaster == "forClass"]
+    forestedDT  <- forestedDT[ , c(2,4)]
+    forestedDT <- droplevels(forestedDT)
+    forestedDT$landForClass <- gsub("[^0-9]", "", forestedDT$landForClass)
+    return(forestedDT)
   })
 
   names(for1DPreds) <- P(sim)$birdList
@@ -496,7 +497,7 @@ browser()
   print("get for1DMaps")
   sim$for1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
     print(bird)
-browser()
+
     lcBirdPreds <- eval(parse(text=paste("for1DPreds$", bird, sep = "")))
 
     #make numeric
@@ -526,7 +527,7 @@ browser()
   # Get full 1D Map
   print("get for1DAndLc1DMaps")
   sim$for1DAndLc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
-browser()
+
     print(bird)
     raster1DBinsLc <- eval(parse(text=paste("sim$lc1DMaps$", bird, sep = "")))
     raster2DBinsFor <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
@@ -562,7 +563,7 @@ browser()
     raster <- eval(parse(text=paste("sim$for1DAndLc1DMaps$", bird, sep = "")))
     names(raster) <- paste(bird)
     terra::writeRaster(x = raster,
-                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for1DAndLc1DMap", sep = "")),
+                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "_for1DAndLc1DMap", sep = "")),
                        filetype= "GTiff",
                        gdal="COMPRESS=NONE",
                        overwrite = TRUE)
@@ -580,7 +581,6 @@ do2DPreds <- function(sim) {
   # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
   # sim$event1Test2 <- 999 # for dummy unit test
   
- browser()
   #get 2D bird predictions (by forest and age class)
   birdGBM <- lapply(X = sim$birdDatasets, FUN = function(birdDF) {
    
@@ -589,22 +589,23 @@ do2DPreds <- function(sim) {
     
     bird <- unique(birdDF$birdSp)
     print(bird)
-    birdDF <- as.data.table(birdDF)
+    birdDT <- as.data.table(birdDF)
     
     #separate out data table rows that are forested
-    forestedDF <- birdDF[forestedStatus == "1"]
-    forestedDF <- forestedDF[, c(1,3,4)]
-    forestedDF$age <- as.integer(forestedDF$age)
-    forestedDF <- droplevels(forestedDF)
+    forestedDT <- birdDT[FoLRaster == "forClass"]
+    forestedDT <- forestedDT[, c(1,2,4)]
+    forestedDT$forClass <- as.factor(forestedDT$forClass)
+    forestedDT$age <- as.integer(forestedDT$age)
+    forestedDT <- droplevels(forestedDT)
     
     #get rid of any rows with NA for age
-    forestedDF <- na.omit(forestedDF, cols = "age")
+    forestedDT <- na.omit(forestedDT, cols = "age")
    
     #fit gbm
     print("fit gbm")
     gbmFitted <- gbm::gbm(formula = birdDensity ~ ., 
                           distribution = "gaussian",
-                          data = forestedDF,
+                          data = forestedDT,
                           interaction.depth = 2,
                           n.trees = P(sim)$nTrees,
                           #verbose = TRUE,
@@ -621,7 +622,7 @@ do2DPreds <- function(sim) {
     # 
     #get Freidman's h-stat
     FriedmansHStat <- gbm::interact.gbm(gbmFitted,
-                                        data = forestedDF,
+                                        data = forestedDT,
                                         i.var = c(1,2),
                                         n.trees = P(sim)$nTrees)
     # print(FriedmansHStat)
@@ -633,26 +634,28 @@ do2DPreds <- function(sim) {
     #make into single summary object
     # statsGBM <- list(relInfGBM, FriedmansHStat) #, plotGBM)
     # names(statsGBM) <- c("relInfGBM", "FriedmansHStat") #, "plotGBM")
+   
     relInfForClass <- relInfGBM[relInfGBM$var == 'landForClass',]
     relInfForClass <- relInfForClass$rel.inf
     relInfAge <- relInfGBM[relInfGBM$var == 'age',]
     relInfAge <- relInfAge$rel.inf
     birdSp <- bird
     statsGBM <- cbind(birdSp, FriedmansHStat, relInfForClass, relInfAge)
+    print(statsGBM)
    
     #generate prediction df using expand
-    sim$maxAge <- max(forestedDF$age) #get age of oldest cell listed in forestedDF
+    sim$maxAge <- max(forestedDT$age) #get age of oldest cell listed in forestedDF
     sim$maxAgeClassAge <- P(sim)$maxAgeClass*P(sim)$ageGrouping 
     ifelse(sim$maxAge > sim$maxAgeClassAge, sim$allAges <- c(0:sim$maxAge), sim$allAges <- c(0:sim$maxAgeClassAge)) #make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
-    birdPredictDF <- forestedDF %>% expand(landForClass, sim$allAges) #make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class. 
-    names(birdPredictDF) <- c("landForClass", "age") #rename the two columns in birdPredictDF
+    birdPredictDT <- forestedDT %>% expand(forClass, sim$allAges) #make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class. 
+    names(birdPredictDT) <- c("forClass", "age") #rename the two columns in birdPredictDF
     
     #do prediction 
     #(object, newdata, n.trees, type = "link", single.tree = FALSE,...)
     #This action produces a vector of predictions for the variables given by each row in birdPredictDF
     print("do gbmPred")
     gbmPred <- gbm::predict.gbm(object = gbmFitted,
-                                newdata = birdPredictDF,
+                                newdata = birdPredictDT,
                                 n.trees = P(sim)$nTrees,
                                 type = "link", 
                                 single.tree = FALSE)  
@@ -671,28 +674,28 @@ do2DPreds <- function(sim) {
               } 
     }
     ageClasses <- sim$ageClasses
-    gbmPredDF <- cbind(birdPredictDF, gbmPred, ageClasses)
-    gbmPredDT <- as.data.table(gbmPredDF)
-    gbmPredDT$landForClass <- as.factor(gbmPredDT$landForClass)
+    gbmPredDT <- cbind(birdPredictDT, gbmPred, ageClasses)
+    gbmPredDT <- as.data.table(gbmPredDT)
+    gbmPredDT$landForClass <- as.factor(gbmPredDT$forClass)
     gbmPredDT$ageClasses <- as.factor(gbmPredDT$ageClasses)
     
     # gbmPredDF <- aggregate( gbmPred ~ ageClasses * landForClass, gbmPredDF, mean )
-    gbmPredDT <- gbmPredDT[order(list(landForClass, ageClasses))  
+    gbmPredDT <- gbmPredDT[order(list(forClass, ageClasses))  
     ][,list(gbmPred = mean(gbmPred)), 
-      by = list(landForClass, ageClasses)]
+      by = list(forClass, ageClasses)]
     
     
     #form matrix with landForClass as y axis and age as x axis
     print("form birdMatrix")
     birdMatrix <- reshape2::acast(gbmPredDT, 
-                                  landForClass~ageClasses, 
+                                  forClass~ageClasses, 
                                   value.var= "gbmPred")
     
     #if any matrix prediction values are negative, make them be 0
     birdMatrix[birdMatrix < 0] <- 0
-    
+    print(birdMatrix)
     #save 2D birdPreds
-    matrixName <- paste(bird, "_birdPreds2D.csv")
+    matrixName <- paste(P(sim)$.studyAreaName, "_", bird, "_birdPreds2D.csv", sep = "")
     write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName)) 
     
     #return(birdMatrix)
@@ -713,7 +716,7 @@ do2DPreds <- function(sim) {
     print(bird)
     birdMatrix <-  eval(parse(text=paste("birdGBM$", bird, "$birdMatricies", sep = "")))
 
-    matrixName <- paste(bird, "_matrix.csv")
+    matrixName <- paste(P(sim)$.studyAreaName, "_", bird, "_matrix.csv", sep = "")
     write.csv(birdMatrix, file =  file.path(outputFolderBirdPreds, matrixName))
 
     return(birdMatrix)
@@ -731,7 +734,7 @@ do2DPreds <- function(sim) {
   })
   
   sim$statsGBM <- rbindlist(statsList)
-  write.csv(sim$statsGBM, file =  file.path(outputFolderBirdPreds, "statsGBM"))
+  write.csv(sim$statsGBM, file =  file.path(outputFolderBirdPreds, paste(P(sim)$.studyAreaName, "_statsGBM", sep = "")))
   
   
   
@@ -751,7 +754,7 @@ do2DPreds <- function(sim) {
   names(ageClassDefs) <- c("allAges", "ageClasses")
   #ageClassDefs <- as.data.table(ageClassDefs) 
   sim$ageClassDefs <- ageClassDefs[, ageClasses:=as.character(ageClasses)] 
-  write.csv(sim$ageClassDefs, file =  file.path(outputFolderBirdPreds, "ageClassDefs"))
+  write.csv(sim$ageClassDefs, file =  file.path(outputFolderBirdPreds, paste(P(sim)$.studyAreaName, "_ageClassDefs", sep = "")))
  
   
   #make list object of all outputs needed for MB Module
@@ -770,7 +773,7 @@ map2D <- function(sim) {
   # sim$event1Test2 <- 999 # for dummy unit test
 
  
-  browser()
+
  
  #### GET 2D MAPS OF MATRIX PREDICTIONS
    print("GET 2D MAPS")
@@ -826,12 +829,12 @@ map2D <- function(sim) {
     names(raster2DBins) <- paste(bird)
 
     #check the new raster
-    raster2DBins
+    print(raster2DBins)
     # clearPlot()
     # Plot(raster2DBins, na.color = "grey")
 
     terra::writeRaster(x = raster2DBins,
-                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DMap", sep = "")),
+                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DMap", sep = "")),
                        filetype= "GTiff",
                        gdal="COMPRESS=NONE",
                        overwrite = TRUE)
@@ -890,7 +893,7 @@ map2D <- function(sim) {
     raster <- eval(parse(text=paste("sim$for2DAndLc1DMaps$", bird, sep = "")))
     names(raster) <- paste(bird)
     terra::writeRaster(x = raster,
-                       filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-for2DAndLc1DMap", sep = "")),
+                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DAndLc1DMap", sep = "")),
                        filetype= "GTiff",
                        gdal="COMPRESS=NONE",
                        overwrite = TRUE)
