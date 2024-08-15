@@ -5,6 +5,8 @@ date: "2023-04-28"
 output: html_document
 ---
 
+# SETUP
+
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE)
@@ -30,6 +32,8 @@ library(rasterVis)
 library(ggh4x)
 library(egg)
 library(cowplot)
+ library(dplyr)
+library(tidyr)
 #library(tidyverse)
 
 options(digits=3) #limit number of digits displayed
@@ -37,10 +41,713 @@ options(digits=3) #limit number of digits displayed
 birdList <- sort(c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN"))
 dev.new()
 cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", "#CC79A7", "#999999","black")
+cbPalette2 <-  c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", "#CC79A7", "#999999","black")
+
+
+inputsDir <- checkPath("../../inputs", create = TRUE)
+rasterToMatchLocation <- file.path(inputsDir, "LCC2005_V1_4a.tif")
+### STUDY AREA ONE DETAILS
+studyAreaLocation <- checkPath(file.path(inputsDir, "studyArea/studyArea_AB_BCR6/studyArea_AB_BCR6.shp"))
+forClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/vegTypesRas_AB_BCR6"), create = TRUE)
+ageRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/ageRas_AB_BCR6"), create = TRUE)
+landClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/landCoverRas_AB_BCR6"), create = TRUE)
+
+
 
 ```
 
-## LANDSCAPE PLOTS
+
+#INPUT STUDY AREA and LANDSCAPE RASTERS
+
+```{r inputLandscapeRasters, include=FALSE}
+
+#INPUT STUDY AREA and LANDSCAPE RASTERS
+
+#get rasterToMatch
+    print("get rasterTomatch from local drive")
+    rasterToMatch <- terra::rast(rasterToMatchLocation)
+   
+    
+    #get StudyArea shapefile
+    print("get studyArea shapefile from local drive")
+    studyArea <- terra::vect(studyAreaLocation)
+    
+    #postProcess studyArea
+    studyArea <- reproducible::postProcess(studyArea,
+                                               destinationPath = getwd(),
+                                               filename2 = "studyArea", 
+                                               useTerra = TRUE,
+                                               fun = "terra::vect", #use the function vect
+                                               targetCRS = crs(rasterToMatch), #make crs same as rasterToMatch
+                                               overwrite = TRUE,
+                                               verbose = TRUE)
+    
+    #crop and mask rasterToMatch
+    rasterToMatch <- terra::mask(terra::crop(rasterToMatch, studyArea), studyArea) 
+    names(rasterToMatch) <- "rasterToMatch"
+    # clearPlot()
+    # Plot(sim$rasterToMatch)
+    plot(rasterToMatch, colNA = "grey")
+    areaConversion <- 6.25
+    studyAreaHa <- length(na.omit(values(rasterToMatch)))*areaConversion
+    print(paste("The study area size is ", studyAreaHa, "ha", sep = ""))
+    
+    # get forest class raster
+    print("get forClassRaster from Drive")
+    forClassRaster <- terra::rast(forClassRasterLocation)
+    forClassRaster <- postProcess(forClassRaster,
+                                      destinationPath = getwd(),
+                                     #use the function raster
+                                     targetCRS = crs(rasterToMatch),
+                                     fun = "terra::rast",
+                                     useTerra = TRUE,
+                                     #use the specified rasterToMatch to reproject to
+                                     rasterToMatch = rasterToMatch,
+                                     #studyArea = studyArea,
+                                     useCache = getOption("reproducible.useCache", TRUE),
+                                     overwrite = TRUE,
+                                     verbose = TRUE)
+    
+    names(forClassRaster) <- c("forClassRaster")
+    
+    forClassRaster[forClassRaster == 0] <- NA
+    
+     # clearPlot()
+    # Plot(forClassRaster, na.color= "grey")
+    plot(forClassRaster, colNA = "grey")
+    #get non forest raster
+    print("get landClassRaster from Drive")
+    landClassRaster <- terra::rast(landClassRasterLocation)
+    landClassRaster <- postProcess(landClassRaster,
+                               destinationPath = getwd(),
+                               #use the function raster
+                               fun = "terra::rast",
+                               targetCRS = crs(rasterToMatch),
+                               #use the specified rasterToMatch to reproject to
+                               rasterToMatch = rasterToMatch,
+                               useTerra = TRUE,
+                               #studyArea = sim$studyArea,
+                               useCache = getOption("reproducible.useCache", TRUE),
+                               overwrite = TRUE,
+                               verbose = TRUE)
+    
+    #landClassRaster[landClassRaster == 0] <- NA
+    
+    names(landClassRaster) <- c("landClassRaster")
+    landClassRaster <- terra::mask(landClassRaster, forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
+    #                         y = forClassRaster,
+    #                         fun = function(x, y) {
+    #                           x[!is.na(y[])] <- NA
+    #                           return(x)
+    #                         })
+    # 
+    # clearPlot()
+    # Plot(landClassRaster, na.color= "grey")
+    plot(landClassRaster, colNA = "grey")
+   
+     #get age raster
+    print("get ageRaster from Drive")
+    ageRaster <- terra::rast(ageRasterLocation)
+    ageRaster <- postProcess(ageRaster,
+                                destinationPath = getwd(),
+                                #use the function raster
+                                useTerra = TRUE,
+                                fun = "terra::rast",
+                                #targetCRS = crs(rasterToMatch),
+                                #use the specified rasterToMatch to reproject to
+                                rasterToMatch = rasterToMatch,
+                                #studyArea = studyArea,
+                                useCache = getOption("reproducible.useCache", TRUE),
+                                overwrite = TRUE,
+                                verbose = TRUE)
+    
+    names(ageRaster) <- c("ageRaster")
+    plot(ageRaster, colNA = "grey")
+# 
+# #make landscape raster
+#   print("make landscapeRaster")
+#   landscapeRaster <- terra::cover(x = forClassRaster, y = landClassRaster)
+#   
+#   names(landscapeRaster) <- c("landscapeRaster")
+#   
+#   # clearPlot()
+#   # Plot(landscapeRaster, na.color= "grey")
+#  plot(landscapeRaster, colNA = "turquoise")
+# 
+# #create a raster that gives if an area is forest or not 
+#   #(0 for non-forest, 1 for forest)
+#   #This will allow me to have a value in the birdDataset 
+#   #that says if a cell was forested or not
+#   print("make FNFRaster")
+#   #make forest 1
+#   uniqueValsFR <- terra::unique(forClassRaster,incomparables=FALSE)
+#   newValsFR <-  as.factor(rep("1", length(uniqueValsFR$forClassRaster))) #make vector that repeats 1 as amy times as there are unique values
+#   newValsFR <- cbind(uniqueValsFR$forClassRaster, newValsFR)
+#   newValsFR <- na.omit(newValsFR)
+#   reclassMatrixFR <- matrix(newValsFR,
+#                             ncol=2, byrow = FALSE)
+#   rasterFR <- terra::classify(forClassRaster,
+#                          reclassMatrixFR)
+#   #make nonFor 0
+#   #valsNF <- unique(sim$rasterToMatch) #get vector of all the unique values in the forClassRaster
+#   uniqueValsNF <- terra::unique(rasterToMatch, incomparables=FALSE)
+#   newValsNF <-  rep(0, length(uniqueValsNF$rasterToMatch)) #make vector that repeats 0 as amy times as there are unique values
+#   newValsNF <- cbind(uniqueValsNF$rasterToMatch, newValsNF)
+#   newValsNF <- na.omit(newValsNF)
+#   reclassMatrixNF <- matrix(newValsNF,
+#                             ncol=2, byrow = FALSE)
+#   rasterNF <- terra::classify(rasterToMatch,
+#                          reclassMatrixNF)
+#   
+#   FNFRaster <- terra::cover(x = rasterFR, y = rasterNF)
+#   
+#   names(FNFRaster) <- c("FNFRaster")
+#   plot(FNFRaster, colNA = "grey")
+# 
+# allLandRasters <- c( forClassRaster, landClassRaster, landscapeRaster, 
+#                      ageRaster, FNFRaster, rasterToMatch)
+    
+```
+## LANDSCAPE PLOTS FOR SINGLE STUDY AREA
+
+##summary landscape plots
+
+```{r singlelandscapeSummaryPlots, echo=FALSE}
+
+ 
+  
+    
+    ## take the values from the rasters and input 
+    ## them to a data table called cellValues
+    allLandData <- data.table(terra::values(c(forClassRaster, 
+                                              landClassRaster, 
+                                              ageRaster,
+                                              rasterToMatch)))
+    allLandData <- setnames(allLandData, c( "forClass", 
+                                            "landClass", 
+                                            "age",
+                                            "LCC05"))
+    
+    allLandData <- allLandData[, FoLRaster := ifelse(!is.na(landClass) & !is.na(forClass), "forClass", 
+                                      ifelse(!is.na(landClass), "landClass",
+                                      ifelse(!is.na(forClass), "forClass", NA)))]
+    allLandData <- allLandData[!is.na(FoLRaster)] #get rid of cells with no forest or land class data.
+ 
+     #make column giving the land or forest class for each row. 
+    allLandData <- allLandData[, landForClass := coalesce(forClass, landClass)]
+    #in case there are classes named the same in both rasters, combine the landForClass and FoLRaster data to make sure each class is unique
+    allLandData <- unite(allLandData, 
+                        landForClass, 
+                        c(FoLRaster, 
+                          landForClass), 
+                        remove=FALSE)
+  
+    allLandData$foLRaster <- as.factor(allLandData$FoLRaster)
+    allLandData$landForClass <- as.factor(allLandData$landForClass)
+     allLandData$LCC05 <- as.factor(allLandData$LCC05)
+     
+     
+     #get rid of any rows with NA values
+    allLandData <- subset(allLandData, !is.na(landForClass)) 
+   #allLandData <- na.omit(allLandData, cols = "ageraster")   
+   
+    allLandData <- as.data.table(allLandData)
+ 
+ #sort(unique(allLandData$uniqueClasses)) #this shows us that there are nonForestedAreas with no landscapeRaster
+
+
+ #check that there are no unwanted overlaps for nonForest raster
+ nonForDat <- na.omit(allLandData, cols = "landClass")
+ unique(nonForDat$forClass)
+ sort(unique(nonForDat$landForClass))
+  sort(unique(nonForDat$age))
+  sort(unique(nonForDat$FoLRaster))
+  sort(unique(nonForDat$LCC05) )
+
+   #check that there are no unwanted overlaps for nonForest raster
+  forClassDat <- na.omit(allLandData, cols = "forClass")
+ unique(forClassDat$landClass)
+  sort(unique(forClassDat$landForClass))
+  sort(unique(forClassDat$age))
+    unique(forClassDat$FoLRaster)
+    sort(unique(forClassDat$LCC05))
+  
+ landDatStats <- allLandData[order(FoLRaster, 
+                                         landForClass) 
+                                   # order the rows by the land cover class
+                                   ][,list(classCount = .N
+                                           ),
+                                           by = list(FoLRaster, 
+                                         landForClass)]
+     
+     
+     landDatStats[ , propArea := classCount/sum(classCount)]
+     
+###############################################################################################################################################################################################################################################################################################################################################################
+    
+
+# make bar chart of different uniqueClasses
+    #classDat <- landDatStats[-8,]
+
+
+
+    plotClassCounts <- ggplot(data = landDatStats,
+                              aes(x = landForClass,
+                                  y = propArea
+                                  )) +
+    geom_bar(stat = "identity",
+             fill =  "#009E73",
+             position = "dodge",
+             width = 0.7) +
+    theme_classic() +
+    labs(tag = "A") +
+      #ggtitle(paste0("Proportional area by cover class")) +
+    ylab("Proportion of study area") +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    #scale_fill_manual(values= "#009E73") +
+   scale_x_discrete(labels=c("landClass_0" = "Unmanaged\n Forest", 
+                             "landClass_1" = "Water/Ice", 
+                             "landClass_2" = "Wetland", 
+                             "landClass_3" = "Anthro/\nExposed", 
+                             "landClass_4" = "Grass/\nCrop" , 
+                             "landClass_5" = "Shrub", 
+                             "landClass_6" = "Bryoid", 
+                             "forClass_1" = "Black \nSpruce", 
+                             "forClass_2" = "  Black  \nSpruce Wet",
+                             "forClass_3" = "Deciduous",  
+                             "forClass_4" = "Mixed",
+                             "forClass_5" = "Pine",
+                             "forClass_6" = "White \nSpruce")) +
+    theme(title = element_text(size = 16),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_blank(),
+        plot.margin = margin(0,0.5,0,0.1, "cm"),
+        legend.position="NULL")
+ plotClassCounts   
+
+ 
+ 
+ 
+
+  
+
+######################################################################################################################################################################################################################################
+  
+ 
+
+ forClassDat_age <- subset(forClassDat, !is.na(age)) 
+
+
+ #assign age class column
+ ageGrouping <- 20
+ maxAgeClass <- 10
+ maxAge <- max(forClassDat_age$age) #get age of oldest cell 
+ maxAgeClassAge <- maxAgeClass*ageGrouping 
+ 
+     ifelse(maxAge > maxAgeClassAge, age <- c(0:maxAge), age <- c(0:maxAgeClassAge)) #make a vector that counts from 0 to 
+  maxAge <-   as.numeric(maxAge)
+ noAgeClasses <- maxAge/ageGrouping
+ ageClass <- ifelse(noAgeClasses < maxAgeClass, ageClass <- maxAgeClass, ageClass <- noAgeClasses )
+    ageClass <- rep(1:ageClass, each = ageGrouping)
+    ageClass <- c(1, ageClass)
+    if(noAgeClasses > maxAgeClass){
+      ageClassDiff <- noAgeClasses - maxAgeClass
+      extraClass <- maxAgeClass + (1:ageClassDiff)
+      for (x in extraClass) {
+        print(x)
+        ageClass <- replace(ageClass ,ageClass== x,maxAgeClass)
+              } 
+    }
+ 
+ ageRefTab <- cbind(age, ageClass) #creates a lookup table of age to age class
+ ageRefTab <- as.data.table(ageRefTab)
+ ageRefTab$age <- as.integer(ageRefTab$age)
+ ageRefTab$ageClass <- as.factor(ageRefTab$ageClass)
+ ageRefTab
+ #allLandData$ageClass = allLandData$ageRaster #replicate age data in new column
+ 
+ #replace ages with ageClass in ageClass column
+ # new <- allLandData
+ # new[] <- lapply(allLandData, function(x) ageRefTab$ageClass[match(x, ageRefTab$ageRaster)])
+# ageClassTab[] <- ageRefTab$ageClass[match(unlist(allLandData), ageRefTab$ageRaster)]
+
+
+ forClassDat_age$age <- as.integer(forClassDat_age$age)
+ #storeDat <- allLandData
+forClassDat_age %>% pivot_longer(cols = "age")
+ forClassDat_age <-  forClassDat_age %>% left_join(ageRefTab, by = "age") 
+   #allLandData %>% pivot_wider(key = ageRaster, value = ageClass)
+  forClassDat_age
+ 
+ forClassStats_age <- forClassDat_age[order(ageClass)
+                                  # order the rows by the land cover class
+                                  ][,list(classCount = .N
+                                          ),
+                                          by = ageClass
+                                        ]
+
+   forClassStats_age[ , propArea := classCount/sum(classCount)]
+   forClassStats_age
+  AB9 <- list( 9, 0, 0)
+  AB10 <- list(10, 0, 0)
+   forClassStats_age <- rbind(forClassStats_age, AB9, AB10)
+   forClassStats_age
+  #forClassStats_age <- rbind(forClassStats_age, )
+  # 
+ # landDatStats_AB <- allLandData_AB[order(FNFRaster, 
+  #                                        uniqueClasses) 
+  #                                  # order the rows by the land cover class
+  #                                  ][,list(classCount = .N
+  #                                          ),
+  #                                          by = list(FNFRaster, 
+  #                                        uniqueClasses)]
+  #    
+  #    studyArea <- rep("AB", each = nrow(landDatStats_AB))
+  #    landDatStats_AB <-cbind(landDatStats_AB, studyArea) 
+  #    
+  #    landDatStats_BC <- allLandData_BC[order(FNFRaster, 
+  #                                        uniqueClasses) 
+  #                                  # order the rows by the land cover class
+  #                                  ][,list(classCount = .N),
+  #                                          by = list(FNFRaster, 
+  #                                        uniqueClasses)]
+  #    
+  #    studyArea <- rep("BC", each = nrow(landDatStats_BC))
+  #    landDatStats_BC <-cbind(landDatStats_BC, studyArea) 
+  #     
+  #   landDatStats <- rbind(landDatStats_AB, landDatStats_BC)
+  #   landDatStats[ , propArea := classCount/sum(classCount), by = studyArea]
+ 
+# make histogram of ages
+  #landDatNoNAs <- na.omit(allLandData)
+#   class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
+# names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
+
+
+  # ggplot(aes(x = hwy)) +
+  # #geom_histogram(aes(y = after_stat(count / sum(count))),binwidth=6) +
+  # scale_y_continuous(labels = scales::percent)
+
+  #ageHistDat <- na.omit(allLandData, cols = "forClassRaster")
+ ageDistribution <- ggplot(data = forClassStats_age,
+                              aes(x = ageClass,
+                                  y = propArea)) +
+    geom_bar(stat = "identity",
+             position = "dodge",
+             width = 0.7, 
+             fill = "#009E73") +
+   labs(tag = "B") +
+    #ggtitle(paste0("Forest age class structure")) +
+    xlab("Age (yrs)") +
+    ylab("Proportion of forested area") +
+    theme_classic()+
+   scale_x_discrete(labels=c("1" = "0-20","2" = "21-40","3" = "41-60","4"= "61-80","5"= "81-100","6"= "101-120","7"= "121-140", "8" = "141-160","9" = "161-180", "10" = "181+"),
+                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
+    scale_y_continuous(breaks= pretty_breaks()) +
+    theme(title = element_text(size = 16),
+        strip.text.x = element_text(size = 14),
+        strip.text.y = element_text(size = 14),
+        strip.background = element_rect(
+        color="white", fill="white", linewidth =1.5),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 12),
+        legend.title = element_blank(),
+        legend.text = element_blank(),
+        plot.margin = margin(0,0,0.5,0.3, "cm"),
+        legend.position="NULL")
+  ageDistribution
+ 
+# # examine 0 class
+#   class0 <- allLandData[landClassRaster == "0"]
+#   class0 <- droplevels(class0)
+#   list(unique(class0$LCC05))
+#   
+#   
+#  class0Stats <- class0[order(LCC05)  
+#                        ][,list(classCount = .N), 
+#                                                                                       by = list(LCC05)]
+#     class0Stats
+#  class0Stats$LCC05 <- as.factor(class0Stats$LCC05)
+#  
+#     plot0Class <- ggplot(data = class0Stats,
+#                               aes(x = LCC05,
+#                                   y = classCount)) +
+#     geom_bar(stat = "identity",
+#              width = 0.7, 
+#              fill = 'goldenrod2') +
+#     theme_classic() +
+#     ggtitle(paste0("BC - LCC05 class distribution for remaining forest class cells in non-forest raster")) +
+#     xlab("LCC05 class") +
+#     ylab("Pixel count") 
+#   plot0Class
+    
+    
+#     
+#   #examine areas that have a 0 for FNFRaster, but NA for landscapeRaster (are in the study area, but have no data from forest raster or non-forest raster)
+#   class0_NA <- allLandData[uniqueClasses == "0_NA"]
+#   class0_NA <- droplevels(class0_NA)
+#   list(unique(class0_NA$LCC05))
+#  
+#   class0_NAStats <- class0_NA[order(LCC05)  
+#                        ][,list(classCount = .N), 
+#                                                                                       by = list(LCC05)]
+#     class0_NAStats
+#  class0_NAStats$LCC05 <- as.factor(class0_NAStats$LCC05)
+#  
+#     plot0_NAClass <- ggplot(data = class0_NAStats,
+#                               aes(x = LCC05,
+#                                   y = classCount)) +
+#     geom_bar(stat = "identity",
+#              width = 0.7, 
+#              fill = 'goldenrod2') +
+#     theme_classic() +
+#     ggtitle(paste0("BC - LCC05 class distribution for areas with 0_NA class (no data from forest or non forest rasters)")) +
+#     xlab("LCC05 class") +
+#     ylab("Pixel count") 
+#   plot0_NAClass
+#     
+#   plot(landscapeRaster, colNA="red") #it is possible to see a few pixels dotted across the landscapeRaster that do not have values
+#   
+# 
+#   
+# #find out LCC05 classes within each of our defined classes
+# class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
+# names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
+# 
+# raster.labs <- c("Not in forest raster", "In forest raster")
+# names(raster.labs) <- c("0", "1")
+# 
+#   histLCC05ByClass   <-  gghistogram(
+#     stat = "count",
+#   allLandData, x = "LCC05", 
+#   fill = "FNFRaster"
+#   ) +
+#     facet_nested( FNFRaster + uniqueClasses ~. ,
+#                  labeller = labeller(uniqueClasses = class.labs, FNFRaster = raster.labs),
+#                   scales = 'free_y'
+#                  ) +
+#      ggtitle(paste0("AB - Histogram of LCC05 Value by Class")) +
+#      xlab("LCC05 value") +
+#      ylab("Number of pixels") +
+#     theme(title = element_text(size = 16),
+#         strip.text.x = element_text(size = 14),
+#         strip.text.y = element_text(size = 14),
+#         strip.background = element_rect(
+#         color="white", fill="white", linewidth =1.5),
+#         axis.text.y = element_text(size = 12),
+#         axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+#         axis.title.y = element_text(size = 14),
+#         axis.title.x = element_blank(),
+#         legend.title = element_blank(),
+#         legend.text = element_text(size = 12),
+#         legend.position="bottom",
+#         plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
+#  histLCC05ByClass 
+
+ 
+ ######################################################################################################################################################################################################################################
+ 
+ 
+ # make bar chart of mean age by uniqueClasses
+
+
+     ageStats <- forClassDat[order(landForClass) 
+                                   # order the rows by the land cover class
+                                   ][,list(classCount = .N, 
+                                           meanAge = mean(age)),
+                                           by = landForClass]
+     
+    
+ #ageStats <- na.omit(classDat, cols = "meanAge")    
+ plotMeanAgeByClass <- ggplot(data = ageStats,
+                              aes(x = landForClass,
+                                  y = meanAge)) +
+    geom_bar(stat = "identity",
+             position = "dodge",
+             width = 0.7,
+             fill = "#009E73") +
+    theme_classic() +
+   # ggtitle(paste0("Mean age by forest class")) +
+   labs(tag = "C") +
+    xlab("Forest class") +
+    ylab("Mean age") +
+    scale_x_discrete(labels=c( "forClass_1" = "Black \nSpruce", 
+                             "forClass_2" = "  Black  \nSpruce Wet",
+                             "forClass_3" = "Deciduous",  
+                             "forClass_4" = "Mixed",
+                             "forClass_5" = "Pine",
+                             "forClass_6" = "White \nSpruce")) +
+  theme(title = element_text(size = 16),
+        strip.text.x = element_text(size = 14),
+        strip.text.y = element_text(size = 14),
+        strip.background = element_rect(
+        color="white", fill="white", linewidth =1.5),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12),
+        plot.margin = margin(0,0.5,0,0, "cm"),
+        legend.position="none")
+  plotMeanAgeByClass 
+  
+######################################################################################################################################################################################################################################
+
+# put landscape plots together
+
+lay <- rbind(c(1,1), c(2,3))
+
+landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  
+                                            ageDistribution, 
+                                            plotMeanAgeByClass, 
+                                            layout_matrix = lay
+                                               )
+
+  
+  #    
+  # allMatrixPlot <- ggarrange( plotClassCounts +
+  #                             theme(title = element_blank())
+  #                          ,
+  #                          ageDistribution +
+  #                             theme(title = element_blank())
+  #                          ,
+  #                          plotMeanAgeByClass+
+  #                             theme(title = element_blank()),
+  #                            widths = c(2, 1, 1), 
+  #                            #heights = c(1, 1, 1),
+  #                          #layout_matrix = lay,
+  #                           nrow = 2,
+  #                           #ncol = 2,
+  #                          labels = c("A", "B", "C"),
+  #                          label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
+  #                           ) 
+  
+  
+#   library(gridExtra)
+# grid.arrange(bp, dp, vp, sc, ncol=2, nrow =2)
+```
+
+
+## landscape rasters maps
+
+
+```{r singleStudyAreaLandscapeRasterMaps, echo=FALSE}
+
+
+   #reclassify to Class Names
+   fcrValue <- c(1, 2, 3, 4, 5, 6)
+   fcrLabel <- c("1", "2", "3", "4", "5", "6")
+   fcrLabelReclass <- c( "Black Spruce", "Black Spruce Wet", "Deciduous", "Mixed", "Pine", "White Spruce")
+   fcrReclassified <- data.frame( fcrValue, fcrLabel, fcrLabelReclass)
+   fcrReclassified$fcrLabelReclass <- as.factor(fcrReclassified$fcrLabelReclass)
+   print(fcrReclassified)
+   str(fcrReclassified)
+ 
+  forClassRaster <- categories(forClassRaster, value=fcrReclassified, active = 2)
+
+    
+     # clearPlot()
+    # Plot(forClassRaster, na.color= "grey")
+    #plot(AB_forClassRaster, colNA = "grey")
+    #get non forest raster
+    # print("get landClassRaster from Drive")
+    # landClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
+    # landClassRaster <- postProcess(landClassRaster,
+    #                            destinationPath = getwd(),
+    #                            #use the function raster
+    #                            fun = "terra::rast",
+    #                            targetCRS = crs(rasterToMatch),
+    #                            #use the specified rasterToMatch to reproject to
+    #                            rasterToMatch = rasterToMatch,
+    #                            useTerra = TRUE,
+    #                            #studyArea = sim$studyArea,
+    #                            useCache = getOption("reproducible.useCache", TRUE),
+    #                            overwrite = TRUE,
+    #                            verbose = TRUE)
+   #reclassify to Class Names
+   lcrValue <- c(0, 1, 2, 3, 4, 5, 6)
+   lcrLabel <- c("0", "1", "2", "3", "4", "5", "6")
+   lcrLabelReclass <- c("Unmanaged Forest", "Water/Ice", "Wetland", "Anthro/Explosed Land", "Grass/Cropland", "Shrub", "Bryoid")
+   lcrReclassified <- data.frame( lcrValue, lcrLabel, lcrLabelReclass)
+   lcrReclassified$lcrLabelReclass <- as.factor(lcrReclassified$lcrLabelReclass)
+   print(lcrReclassified)
+   str(lcrReclassified)
+ 
+  landClassRaster <- categories(landClassRaster, value=lcrReclassified, active = 2)
+
+    
+    names(landClassRaster) <- c("landClassRaster")
+    landClassRaster <- terra::mask(landClassRaster, forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
+    #                         y = forClassRaster,
+    #                         fun = function(x, y) {
+    #                           x[!is.na(y[])] <- NA
+    #                           return(x)
+    #                         })
+    # 
+    # clearPlot()
+    # Plot(landClassRaster, na.color= "grey")
+    #plot(AB_landClassRaster, colNA = "grey")
+   
+    #  #get age raster
+    # print("get ageRaster from Drive")
+    # ageRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/ageRas_ABNew_0722.tif"))
+    # ageRaster <- postProcess(ageRaster,
+    #                             destinationPath = getwd(),
+    #                             #use the function raster
+    #                             useTerra = TRUE,
+    #                             fun = "terra::rast",
+    #                             #targetCRS = crs(rasterToMatch),
+    #                             #use the specified rasterToMatch to reproject to
+    #                             rasterToMatch = rasterToMatch,
+    #                             #studyArea = studyArea,
+    #                             useCache = getOption("reproducible.useCache", TRUE),
+    #                             overwrite = TRUE,
+    #                             verbose = TRUE)
+    # 
+    # names(ageRaster) <- c("ageRaster")
+    # #plot(AB_ageRaster, colNA = "grey")
+
+#make landscape raster
+  print("make landscapeRaster")
+  landscapeRaster <- terra::cover(x = forClassRaster, y = landClassRaster)
+
+  names(landscapeRaster) <- c("landscapeRaster")
+
+
+ plot(landscapeRaster, main = "Landscape raster", legend = TRUE, colNA = "white", axes = FALSE, box = FALSE)
+
+cbPalette2 <-  c( "#56B4E9",  "#0072B2","#009E73", "#E69F00", "#999999","black")
+plot(forClassRaster, main = 'Forest Class Raster', legend = TRUE, col = cbPalette2, colNA="white", axes=FALSE, box=FALSE)
+# legend("bottomright", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce"), fill = cbPalette)
+
+#landClassRaster
+#plot(landClassRaster,colNA="grey70")
+# customizing the legend
+plot(landClassRaster, main = 'Land-Cover Class Raster', legend = TRUE, col = cbPalette2, colNA="white", axes=FALSE, box=FALSE)
+#nf.legend <- legend("right", legend = c("0" = "Unmanaged Forest", "1" = "Water/Ice", "2" = "Wetland", "3" = "Anthro/Exposed Land", "4" = "Grass/Cropland", "5" = "Shrub", "6" = "Bryoid"), fill = cbPalette)
+
+
+
+#ageRaster
+# min_ = min(min(terra::unique(AB_ageRaster)), min(terra::unique(BC_ageRaster)))
+# max_ = max(max(terra::unique(AB_ageRaster)), max(terra::unique(BC_ageRaster)))
+# r.range = c(min_, max_)
+
+plot(ageRaster, main = 'Age Raster', colNA="white", axes=FALSE, box = FALSE)  
+  
+
+```
+
+#LANDSCAPE PLOTS FOR TWO STUDY AREAS
 
 ## summary landscape plot
 
@@ -96,9 +803,9 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
     # Plot(forClassRaster, na.color= "grey")
     plot(forClassRaster, colNA = "grey")
     #get non forest raster
-    print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
-    nonForRaster <- postProcess(nonForRaster,
+    print("get landClassRaster from Drive")
+    landClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
+    landClassRaster <- postProcess(landClassRaster,
                                destinationPath = getwd(),
                                #use the function raster
                                fun = "terra::rast",
@@ -111,11 +818,11 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
                                overwrite = TRUE,
                                verbose = TRUE)
     
-    #nonForRaster[nonForRaster == 0] <- NA
+    #landClassRaster[landClassRaster == 0] <- NA
     
-    names(nonForRaster) <- c("nonForRaster")
-    nonForRaster <- terra::mask(nonForRaster, forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
+    names(landClassRaster) <- c("landClassRaster")
+    landClassRaster <- terra::mask(landClassRaster, forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
     #                         y = forClassRaster,
     #                         fun = function(x, y) {
     #                           x[!is.na(y[])] <- NA
@@ -123,8 +830,8 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
     #                         })
     # 
     # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    plot(nonForRaster, colNA = "grey")
+    # Plot(landClassRaster, na.color= "grey")
+    plot(landClassRaster, colNA = "grey")
    
      #get age raster
     print("get ageRaster from Drive")
@@ -147,7 +854,7 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
 
 #make landscape raster
   print("make landscapeRaster")
-  landscapeRaster <- terra::cover(x = forClassRaster, y = nonForRaster)
+  landscapeRaster <- terra::cover(x = forClassRaster, y = landClassRaster)
   
   names(landscapeRaster) <- c("landscapeRaster")
   
@@ -184,7 +891,7 @@ cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", 
   names(FNFRaster) <- c("FNFRaster")
   plot(FNFRaster, colNA = "grey")
 
-allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster, 
+allLandRasters <- c( forClassRaster, landClassRaster, landscapeRaster, 
                      ageRaster, FNFRaster, rasterToMatch)
     
     
@@ -192,7 +899,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
     ## them to a data table called cellValues
     allLandData <- data.table(terra::values(allLandRasters))
     allLandData <- setnames(allLandData, c( "forClassRaster", 
-                                          "nonForRaster", 
+                                          "landClassRaster", 
                                           "landscapeRaster", 
                                           "ageRaster",
                                           "FNFRaster",
@@ -221,7 +928,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
 
 
  # #check that there are no unwanted overlaps for nonForest raster
- # nonForDat <- na.omit(allLandData, cols = "nonForRaster") 
+ # nonForDat <- na.omit(allLandData, cols = "landClassRaster") 
  # unique(nonForDat$forClassRaster)
  # unique(nonForDat$uniqueClasses)
  #  unique(nonForDat$landscapeRaster)
@@ -231,7 +938,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
  #  
  #   #check that there are no unwanted overlaps for nonForest raster
  #  forClasDat <- na.omit(allLandData, cols = "forClassRaster") 
- # unique(forClasDat$nonForRaster)
+ # unique(forClasDat$landClassRaster)
  # sort(unique(forClasDat$uniqueClasses))
  #  sort(unique(forClasDat$landscapeRaster))
  #  sort(unique(forClasDat$ageRaster))
@@ -292,9 +999,9 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
     # Plot(forClassRaster, na.color= "grey")
     plot(forClassRaster, colNA = "grey")
     #get non forest raster
-    print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
-    nonForRaster <- postProcess(nonForRaster,
+    print("get landClassRaster from Drive")
+    landClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
+    landClassRaster <- postProcess(landClassRaster,
                                destinationPath = getwd(),
                                #use the function raster
                                fun = "terra::rast",
@@ -307,11 +1014,11 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
                                overwrite = TRUE,
                                verbose = TRUE)
     
-    #nonForRaster[nonForRaster == 0] <- NA
+    #landClassRaster[landClassRaster == 0] <- NA
     
-    names(nonForRaster) <- c("nonForRaster")
-    nonForRaster <- terra::mask(nonForRaster, forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
+    names(landClassRaster) <- c("landClassRaster")
+    landClassRaster <- terra::mask(landClassRaster, forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
     #                         y = forClassRaster,
     #                         fun = function(x, y) {
     #                           x[!is.na(y[])] <- NA
@@ -319,8 +1026,8 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
     #                         })
     # 
     # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    plot(nonForRaster, colNA = "grey")
+    # Plot(landClassRaster, na.color= "grey")
+    plot(landClassRaster, colNA = "grey")
    
      #get age raster
     print("get ageRaster from Drive")
@@ -343,7 +1050,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
 
 #make landscape raster
   print("make landscapeRaster")
-  landscapeRaster <- terra::cover(x = forClassRaster, y = nonForRaster)
+  landscapeRaster <- terra::cover(x = forClassRaster, y = landClassRaster)
   
   names(landscapeRaster) <- c("landscapeRaster")
   
@@ -380,7 +1087,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
   names(FNFRaster) <- c("FNFRaster")
   plot(FNFRaster, colNA = "grey")
 
-allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster, 
+allLandRasters <- c( forClassRaster, landClassRaster, landscapeRaster, 
                      ageRaster, FNFRaster, rasterToMatch)
     
     
@@ -388,7 +1095,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
     ## them to a data table called cellValues
     allLandData <- data.table(terra::values(allLandRasters))
     allLandData <- setnames(allLandData, c( "forClassRaster", 
-                                          "nonForRaster", 
+                                          "landClassRaster", 
                                           "landscapeRaster", 
                                           "ageRaster",
                                           "FNFRaster",
@@ -418,7 +1125,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
 
 
  # #check that there are no unwanted overlaps for nonForest raster
- # nonForDat <- na.omit(allLandData, cols = "nonForRaster") 
+ # nonForDat <- na.omit(allLandData, cols = "landClassRaster") 
  # unique(nonForDat$forClassRaster)
  # unique(nonForDat$uniqueClasses)
  #  unique(nonForDat$landscapeRaster)
@@ -428,7 +1135,7 @@ allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster,
  #  
  #   #check that there are no unwanted overlaps for nonForest raster
  #  forClasDat <- na.omit(allLandData, cols = "forClassRaster") 
- # unique(forClasDat$nonForRaster)
+ # unique(forClasDat$landClassRaster)
  # sort(unique(forClasDat$uniqueClasses))
  #  sort(unique(forClasDat$landscapeRaster))
  #  sort(unique(forClasDat$ageRaster))
@@ -637,7 +1344,7 @@ allLandData_age %>% pivot_longer(cols = "ageRaster")
   ageDistribution
  
 # # examine 0 class
-#   class0 <- allLandData[nonForRaster == "0"]
+#   class0 <- allLandData[landClassRaster == "0"]
 #   class0 <- droplevels(class0)
 #   list(unique(class0$LCC05))
 #   
@@ -808,552 +1515,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
 
 
 
-##(single study area) summary landscape plots
 
-```{r singlelandscapeSummaryPlots, echo=FALSE}
-
- #get rasterToMatch
-    print("get rasterTomatch from local drive")
-    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
-   
-    
-    #get StudyArea shapefile
-    print("get studyArea shapefile from local drive")
-    studyArea <- terra::vect(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/studyAreaAB.shp"))
-    
-    #postProcess studyArea
-    studyArea <- reproducible::postProcess(studyArea,
-                                               destinationPath = getwd(),
-                                               filename2 = "studyArea", 
-                                               useTerra = TRUE,
-                                               fun = "terra::vect", #use the function vect
-                                               targetCRS = crs(rasterToMatch), #make crs same as rasterToMatch
-                                               overwrite = TRUE,
-                                               verbose = TRUE)
-    
-    #crop and mask rasterToMatch
-    rasterToMatch <- terra::mask(terra::crop(rasterToMatch, studyArea), studyArea) 
-    names(rasterToMatch) <- "rasterToMatch"
-    # clearPlot()
-    # Plot(sim$rasterToMatch)
-    plot(rasterToMatch, colNA = "grey")
-    
-    # get forest class raster
-    print("get forClassRaster from Drive")
-    forClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/vegTypesRas_ABNew_0722.tif"))
-    forClassRaster <- postProcess(forClassRaster,
-                                      destinationPath = getwd(),
-                                     #use the function raster
-                                     targetCRS = crs(rasterToMatch),
-                                     fun = "terra::rast",
-                                     useTerra = TRUE,
-                                     #use the specified rasterToMatch to reproject to
-                                     rasterToMatch = rasterToMatch,
-                                     #studyArea = studyArea,
-                                     useCache = getOption("reproducible.useCache", TRUE),
-                                     overwrite = TRUE,
-                                     verbose = TRUE)
-    
-    names(forClassRaster) <- c("forClassRaster")
-    
-    forClassRaster[forClassRaster == 0] <- NA
-    
-     # clearPlot()
-    # Plot(forClassRaster, na.color= "grey")
-    plot(forClassRaster, colNA = "grey")
-    #get non forest raster
-    print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
-    nonForRaster <- postProcess(nonForRaster,
-                               destinationPath = getwd(),
-                               #use the function raster
-                               fun = "terra::rast",
-                               targetCRS = crs(rasterToMatch),
-                               #use the specified rasterToMatch to reproject to
-                               rasterToMatch = rasterToMatch,
-                               useTerra = TRUE,
-                               #studyArea = sim$studyArea,
-                               useCache = getOption("reproducible.useCache", TRUE),
-                               overwrite = TRUE,
-                               verbose = TRUE)
-    
-    #nonForRaster[nonForRaster == 0] <- NA
-    
-    names(nonForRaster) <- c("nonForRaster")
-    nonForRaster <- terra::mask(nonForRaster, forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
-    #                         y = forClassRaster,
-    #                         fun = function(x, y) {
-    #                           x[!is.na(y[])] <- NA
-    #                           return(x)
-    #                         })
-    # 
-    # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    plot(nonForRaster, colNA = "grey")
-   
-     #get age raster
-    print("get ageRaster from Drive")
-    ageRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/ageRas_ABNew_0722.tif"))
-    ageRaster <- postProcess(ageRaster,
-                                destinationPath = getwd(),
-                                #use the function raster
-                                useTerra = TRUE,
-                                fun = "terra::rast",
-                                #targetCRS = crs(rasterToMatch),
-                                #use the specified rasterToMatch to reproject to
-                                rasterToMatch = rasterToMatch,
-                                #studyArea = studyArea,
-                                useCache = getOption("reproducible.useCache", TRUE),
-                                overwrite = TRUE,
-                                verbose = TRUE)
-    
-    names(ageRaster) <- c("ageRaster")
-    plot(ageRaster, colNA = "grey")
-
-#make landscape raster
-  print("make landscapeRaster")
-  landscapeRaster <- terra::cover(x = forClassRaster, y = nonForRaster)
-  
-  names(landscapeRaster) <- c("landscapeRaster")
-  
-  # clearPlot()
-  # Plot(landscapeRaster, na.color= "grey")
- plot(landscapeRaster, colNA = "turquoise")
-  #create a raster that gives if an area is forest or not 
-  #(0 for non-forest, 1 for forest)
-  #This will allow me to have a value in the birdDataset 
-  #that says if a cell was forested or not
-  print("make FNFRaster")
-  #make forest 1
-  uniqueValsFR <- terra::unique(forClassRaster,incomparables=FALSE)
-  newValsFR <-  as.factor(rep("1", length(uniqueValsFR$forClassRaster))) #make vector that repeats 1 as amy times as there are unique values
-  newValsFR <- cbind(uniqueValsFR$forClassRaster, newValsFR)
-  newValsFR <- na.omit(newValsFR)
-  reclassMatrixFR <- matrix(newValsFR,
-                            ncol=2, byrow = FALSE)
-  rasterFR <- terra::classify(forClassRaster,
-                         reclassMatrixFR)
-  #make nonFor 0
-  #valsNF <- unique(sim$rasterToMatch) #get vector of all the unique values in the forClassRaster
-  uniqueValsNF <- terra::unique(rasterToMatch, incomparables=FALSE)
-  newValsNF <-  rep(0, length(uniqueValsNF$rasterToMatch)) #make vector that repeats 0 as amy times as there are unique values
-  newValsNF <- cbind(uniqueValsNF$rasterToMatch, newValsNF)
-  newValsNF <- na.omit(newValsNF)
-  reclassMatrixNF <- matrix(newValsNF,
-                            ncol=2, byrow = FALSE)
-  rasterNF <- terra::classify(rasterToMatch,
-                         reclassMatrixNF)
-  
-  FNFRaster <- terra::cover(x = rasterFR, y = rasterNF)
-  
-  names(FNFRaster) <- c("FNFRaster")
-  plot(FNFRaster, colNA = "grey")
-
-allLandRasters <- c( forClassRaster, nonForRaster, landscapeRaster, 
-                     ageRaster, FNFRaster, rasterToMatch)
-    
-    
-    ## take the values from the rasters and input 
-    ## them to a data table called cellValues
-    allLandData <- data.table(terra::values(allLandRasters))
-    allLandData <- setnames(allLandData, c( "forClassRaster", 
-                                          "nonForRaster", 
-                                          "landscapeRaster", 
-                                          "ageRaster",
-                                          "FNFRaster",
-                                          "LCC05"))
-  allLandData <- unite(allLandData, 
-                        uniqueClasses, 
-                        c(FNFRaster, 
-                          landscapeRaster), 
-                        remove=FALSE)
-  
-    allLandData$FNFRaster <- as.factor(allLandData$FNFRaster)
-    allLandData$uniqueClasses <- as.factor(allLandData$uniqueClasses)
-     allLandData$LCC05 <- as.factor(allLandData$LCC05)
-     
-     
-     studyArea <- rep("AB", each = nrow(allLandData))
-     allLandData <- cbind(allLandData, studyArea) 
-    
-    #get rid of any rows with NA values
-    allLandData <- subset(allLandData, !is.na(landscapeRaster)) 
-   #allLandData <- na.omit(allLandData, cols = "ageraster")   
-   
-    allLandData <- as.data.table(allLandData)
- 
- #sort(unique(allLandData$uniqueClasses)) #this shows us that there are nonForestedAreas with no landscapeRaster
-
-
- #check that there are no unwanted overlaps for nonForest raster
- nonForDat <- na.omit(allLandData, cols = "nonForRaster")
- unique(nonForDat$forClassRaster)
- unique(nonForDat$uniqueClasses)
-  unique(nonForDat$landscapeRaster)
-  unique(nonForDat$ageRaster)
-  unique(nonForDat$FNFRaster)
-  sort(unique(nonForDat$LCC05) )
-
-   #check that there are no unwanted overlaps for nonForest raster
-  forClasDat <- na.omit(allLandData, cols = "forClassRaster")
- unique(forClasDat$nonForRaster)
- sort(unique(forClasDat$uniqueClasses))
-  sort(unique(forClasDat$landscapeRaster))
-  sort(unique(forClasDat$ageRaster))
-    unique(forClasDat$FNFRaster)
-    sort(unique(forClasDat$LCC05))
-  
- landDatStats <- allLandData[order(FNFRaster, 
-                                         uniqueClasses) 
-                                   # order the rows by the land cover class
-                                   ][,list(classCount = .N
-                                           ),
-                                           by = list(FNFRaster, 
-                                         uniqueClasses)]
-     
-     studyArea <- rep("AB", each = nrow(landDatStats))
-     landDatStats <-cbind(landDatStats, studyArea) 
-     
-     landDatStats[ , propArea := classCount/sum(classCount), by = studyArea]
-     
-###############################################################################################################################################################################################################################################################################################################################################################
-    
- ras.labs <- c("Land cover class raster", "Forest class raster")
- names(ras.labs) <- c("0", "1")   
-    
-# make bar chart of different uniqueClasses
-    #classDat <- landDatStats[-8,]
-
-
-
-    plotClassCounts <- ggplot(data = landDatStats,
-                              aes(x = uniqueClasses,
-                                  y = propArea, 
-                                  fill = studyArea)) +
-    geom_bar(stat = "identity",
-             position = "dodge",
-             width = 0.7) +
-    theme_classic() +
-    labs(tag = "A") +
-      #ggtitle(paste0("Proportional area by cover class")) +
-    ylab("Proportion of study area") +
-    scale_y_continuous(breaks= pretty_breaks()) +
-    scale_fill_manual(values= "#009E73") +
-   scale_x_discrete(labels=c("0_0" = "Unmanaged\n Forest", "0_1" = "Water/Ice", "0_2" = "Wetland", "0_3" = "Anthro/\nExposed", "0_4" = "Grass/\nCrop" , "0_5" = "Shrub", "0_6" = "Bryoid", "1_7" = "White \nSpruce", "1_1" = "Black \nSpruce", "1_2" = "  Black  \nSpruce Wet", "1_6" = "Pine", "1_3" = "Conifer Mix",  "1_5" = "Mixed", "1_4" = "Deciduous"  )) +
-    theme(title = element_text(size = 16),
-        axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-        axis.title.y = element_text(size = 14),
-        axis.title.x = element_blank(),
-        legend.title = element_blank(),
-        legend.text = element_blank(),
-        plot.margin = margin(0,0.5,0,0.1, "cm"),
-        legend.position="NULL")
- plotClassCounts   
-
- 
- 
- 
-
-  
-
-######################################################################################################################################################################################################################################
-  
- 
- allLandData <- allLandData[allLandData$FNFRaster == 1, ]
- allLandData <- subset(allLandData, !is.na(ageRaster)) 
- allLandData_age <- allLandData
-
- #assign age class column
- ageGrouping <- 20
- maxAgeClass <- 10
- maxAge <- max(allLandData_age$ageRaster) #get age of oldest cell 
- maxAgeClassAge <- maxAgeClass*ageGrouping 
- 
-     ifelse(maxAge > maxAgeClassAge, ageRaster <- c(0:maxAge), ageRaster <- c(0:maxAgeClassAge)) #make a vector that counts from 0 to 
-  maxAge <-   as.numeric(maxAge)
- noAgeClasses <- maxAge/ageGrouping
- ageClass <- ifelse(noAgeClasses < maxAgeClass, ageClass <- maxAgeClass, ageClass <- noAgeClasses )
-    ageClass <- rep(1:ageClass, each = ageGrouping)
-    ageClass <- c(1, ageClass)
-    if(noAgeClasses > maxAgeClass){
-      ageClassDiff <- noAgeClasses - maxAgeClass
-      extraClass <- maxAgeClass + (1:ageClassDiff)
-      for (x in extraClass) {
-        print(x)
-        ageClass <- replace(ageClass ,ageClass== x,maxAgeClass)
-              } 
-    }
- 
- ageRefTab <- cbind(ageRaster, ageClass) #creates a lookup table of age to age class
- ageRefTab <- as.data.table(ageRefTab)
- ageRefTab$ageRaster <- as.character(ageRefTab$ageRaster)
- ageRefTab$ageClass <- as.character(ageRefTab$ageClass)
- #allLandData$ageClass = allLandData$ageRaster #replicate age data in new column
- 
- #replace ages with ageClass in ageClass column
- # new <- allLandData
- # new[] <- lapply(allLandData, function(x) ageRefTab$ageClass[match(x, ageRefTab$ageRaster)])
-# ageClassTab[] <- ageRefTab$ageClass[match(unlist(allLandData), ageRefTab$ageRaster)]
-
- library(dplyr)
-library(tidyr)
- allLandData_age$ageRaster <- as.character(allLandData_age$ageRaster)
- #storeDat <- allLandData
-allLandData_age %>% pivot_longer(cols = "ageRaster")
- allLandData_age <-  allLandData_age %>% left_join(ageRefTab, by = "ageRaster") 
-   #allLandData %>% pivot_wider(key = ageRaster, value = ageClass)
-  allLandData_age
- 
- landDatStats_age <- allLandData_age[order(studyArea,
-                                        ageClass)
-                                  # order the rows by the land cover class
-                                  ][,list(classCount = .N
-                                          ),
-                                          by = list(studyArea, ageClass
-                                        )]
-
-   landDatStats_age[ , propArea := classCount/sum(classCount), by = studyArea]
-   AB9 <- list("AB", 9, 0, 0)
-   AB10 <- list("AB", 10, 0, 0)
-   landDatStats_age <- rbind(landDatStats_age, AB9)
-   landDatStats_age <- rbind(landDatStats_age, AB10)
- 
- # landDatStats_AB <- allLandData_AB[order(FNFRaster, 
-  #                                        uniqueClasses) 
-  #                                  # order the rows by the land cover class
-  #                                  ][,list(classCount = .N
-  #                                          ),
-  #                                          by = list(FNFRaster, 
-  #                                        uniqueClasses)]
-  #    
-  #    studyArea <- rep("AB", each = nrow(landDatStats_AB))
-  #    landDatStats_AB <-cbind(landDatStats_AB, studyArea) 
-  #    
-  #    landDatStats_BC <- allLandData_BC[order(FNFRaster, 
-  #                                        uniqueClasses) 
-  #                                  # order the rows by the land cover class
-  #                                  ][,list(classCount = .N),
-  #                                          by = list(FNFRaster, 
-  #                                        uniqueClasses)]
-  #    
-  #    studyArea <- rep("BC", each = nrow(landDatStats_BC))
-  #    landDatStats_BC <-cbind(landDatStats_BC, studyArea) 
-  #     
-  #   landDatStats <- rbind(landDatStats_AB, landDatStats_BC)
-  #   landDatStats[ , propArea := classCount/sum(classCount), by = studyArea]
- 
-# make histogram of ages
-  #landDatNoNAs <- na.omit(allLandData)
-#   class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
-# names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
-
-
-  # ggplot(aes(x = hwy)) +
-  # #geom_histogram(aes(y = after_stat(count / sum(count))),binwidth=6) +
-  # scale_y_continuous(labels = scales::percent)
-
-  #ageHistDat <- na.omit(allLandData, cols = "forClassRaster")
- ageDistribution <- ggplot(data = landDatStats_age,
-                              aes(x = ageClass,
-                                  y = propArea,
-                                  fill = studyArea)) +
-    geom_bar(stat = "identity",
-             position = "dodge",
-             width = 0.7) +
-   labs(tag = "B") +
-    #ggtitle(paste0("Forest age class structure")) +
-    xlab("Age (yrs)") +
-    ylab("Proportion of study area") +
-    theme_classic()+
-   scale_x_discrete(labels=c("1" = "0-20","2" = "21-40","3" = "41-60","4"= "61-80","5"= "81-100","6"= "101-120","7"= "121-140", "8" = "141-160","9" = "161-180", "10" = "181+"),
-                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
-    scale_y_continuous(breaks= pretty_breaks()) +
-    scale_fill_manual(values="#009E73") +
-     theme(title = element_text(size = 16),
-        strip.text.x = element_text(size = 14),
-        strip.text.y = element_text(size = 14),
-        strip.background = element_rect(
-        color="white", fill="white", linewidth =1.5),
-        axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-        axis.title.y = element_text(size = 14),
-        axis.title.x = element_text(size = 12),
-        legend.title = element_blank(),
-        legend.text = element_blank(),
-        plot.margin = margin(0,0,0.5,0.3, "cm"),
-        legend.position="NULL")
-  ageDistribution
- 
-# # examine 0 class
-#   class0 <- allLandData[nonForRaster == "0"]
-#   class0 <- droplevels(class0)
-#   list(unique(class0$LCC05))
-#   
-#   
-#  class0Stats <- class0[order(LCC05)  
-#                        ][,list(classCount = .N), 
-#                                                                                       by = list(LCC05)]
-#     class0Stats
-#  class0Stats$LCC05 <- as.factor(class0Stats$LCC05)
-#  
-#     plot0Class <- ggplot(data = class0Stats,
-#                               aes(x = LCC05,
-#                                   y = classCount)) +
-#     geom_bar(stat = "identity",
-#              width = 0.7, 
-#              fill = 'goldenrod2') +
-#     theme_classic() +
-#     ggtitle(paste0("BC - LCC05 class distribution for remaining forest class cells in non-forest raster")) +
-#     xlab("LCC05 class") +
-#     ylab("Pixel count") 
-#   plot0Class
-    
-    
-#     
-#   #examine areas that have a 0 for FNFRaster, but NA for landscapeRaster (are in the study area, but have no data from forest raster or non-forest raster)
-#   class0_NA <- allLandData[uniqueClasses == "0_NA"]
-#   class0_NA <- droplevels(class0_NA)
-#   list(unique(class0_NA$LCC05))
-#  
-#   class0_NAStats <- class0_NA[order(LCC05)  
-#                        ][,list(classCount = .N), 
-#                                                                                       by = list(LCC05)]
-#     class0_NAStats
-#  class0_NAStats$LCC05 <- as.factor(class0_NAStats$LCC05)
-#  
-#     plot0_NAClass <- ggplot(data = class0_NAStats,
-#                               aes(x = LCC05,
-#                                   y = classCount)) +
-#     geom_bar(stat = "identity",
-#              width = 0.7, 
-#              fill = 'goldenrod2') +
-#     theme_classic() +
-#     ggtitle(paste0("BC - LCC05 class distribution for areas with 0_NA class (no data from forest or non forest rasters)")) +
-#     xlab("LCC05 class") +
-#     ylab("Pixel count") 
-#   plot0_NAClass
-#     
-#   plot(landscapeRaster, colNA="red") #it is possible to see a few pixels dotted across the landscapeRaster that do not have values
-#   
-# 
-#   
-# #find out LCC05 classes within each of our defined classes
-# class.labs <- c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed", "Grass/Crop", "Shrub", "Bryoid", "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
-# names(class.labs) <- c("0_0", "0_1", "0_2", "0_3", "0_4", "0_5", "0_6", "1_1", "1_2", "1_3", "1_4", "1_5", "1_6", "1_7")
-# 
-# raster.labs <- c("Not in forest raster", "In forest raster")
-# names(raster.labs) <- c("0", "1")
-# 
-#   histLCC05ByClass   <-  gghistogram(
-#     stat = "count",
-#   allLandData, x = "LCC05", 
-#   fill = "FNFRaster"
-#   ) +
-#     facet_nested( FNFRaster + uniqueClasses ~. ,
-#                  labeller = labeller(uniqueClasses = class.labs, FNFRaster = raster.labs),
-#                   scales = 'free_y'
-#                  ) +
-#      ggtitle(paste0("AB - Histogram of LCC05 Value by Class")) +
-#      xlab("LCC05 value") +
-#      ylab("Number of pixels") +
-#     theme(title = element_text(size = 16),
-#         strip.text.x = element_text(size = 14),
-#         strip.text.y = element_text(size = 14),
-#         strip.background = element_rect(
-#         color="white", fill="white", linewidth =1.5),
-#         axis.text.y = element_text(size = 12),
-#         axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-#         axis.title.y = element_text(size = 14),
-#         axis.title.x = element_blank(),
-#         legend.title = element_blank(),
-#         legend.text = element_text(size = 12),
-#         legend.position="bottom",
-#         plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
-#  histLCC05ByClass 
-
- 
- ######################################################################################################################################################################################################################################
- 
- 
- # make bar chart of mean age by uniqueClasses
-
-
-     ageStats <- allLandData[order(studyArea, 
-                                         uniqueClasses) 
-                                   # order the rows by the land cover class
-                                   ][,list(classCount = .N, 
-                                           meanAge = mean(ageRaster)),
-                                           by = list(studyArea, 
-                                         uniqueClasses)]
-     
-    
- #ageStats <- na.omit(classDat, cols = "meanAge")    
- plotMeanAgeByClass <- ggplot(data = ageStats,
-                              aes(x = uniqueClasses,
-                                  y = meanAge,
-                                  fill = studyArea)) +
-    geom_bar(stat = "identity",
-             position = "dodge",
-             width = 0.7) +
-    theme_classic() +
-   # ggtitle(paste0("Mean age by forest class")) +
-   labs(tag = "C") +
-    xlab("Forest class") +
-    ylab("Mean age") +
-    scale_fill_manual(values="#009E73") +
-   scale_x_discrete(labels=c("1_1" = "Black \nSpruce", "1_2" = "Black \nSpruce Wet", "1_3" = "Conifer Mix", "1_4" = "Deciduous", "1_5" = "Mixed", "1_6" = "Pine", "1_7" = "White \nSpruce")) +
-  theme(title = element_text(size = 16),
-        strip.text.x = element_text(size = 14),
-        strip.text.y = element_text(size = 14),
-        strip.background = element_rect(
-        color="white", fill="white", linewidth =1.5),
-        axis.text.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-        axis.title.y = element_text(size = 14),
-        axis.title.x = element_blank(),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 12),
-        plot.margin = margin(0,0.5,0,0, "cm"),
-        legend.position="none")
-  plotMeanAgeByClass 
-  
-######################################################################################################################################################################################################################################
-
-# put landscape plots together
-
-lay <- rbind(c(1,1), c(2,3))
-
-landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,  
-                                            ageDistribution, 
-                                            plotMeanAgeByClass, 
-                                            layout_matrix = lay
-                                               )
-
-  
-  #    
-  # allMatrixPlot <- ggarrange( plotClassCounts +
-  #                             theme(title = element_blank())
-  #                          ,
-  #                          ageDistribution +
-  #                             theme(title = element_blank())
-  #                          ,
-  #                          plotMeanAgeByClass+
-  #                             theme(title = element_blank()),
-  #                            widths = c(2, 1, 1), 
-  #                            #heights = c(1, 1, 1),
-  #                          #layout_matrix = lay,
-  #                           nrow = 2,
-  #                           #ncol = 2,
-  #                          labels = c("A", "B", "C"),
-  #                          label.args = list(gp=gpar(font=4, fontsize = 16), x=unit(1,"line"), hjust=1)
-  #                           ) 
-  
-  
-#   library(gridExtra)
-# grid.arrange(bp, dp, vp, sc, ncol=2, nrow =2)
-```
 
 ##landscape rasters maps
 
@@ -1411,9 +1573,9 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
     # Plot(forClassRaster, na.color= "grey")
     #plot(AB_forClassRaster, colNA = "grey")
     #get non forest raster
-    print("get nonForRaster from Drive")
-    AB_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
-    AB_nonForRaster <- postProcess(AB_nonForRaster,
+    print("get landClassRaster from Drive")
+    AB_landClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
+    AB_landClassRaster <- postProcess(AB_landClassRaster,
                                destinationPath = getwd(),
                                #use the function raster
                                fun = "terra::rast",
@@ -1426,11 +1588,11 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
                                overwrite = TRUE,
                                verbose = TRUE)
     
-    #nonForRaster[nonForRaster == 0] <- NA
+    #landClassRaster[landClassRaster == 0] <- NA
     
-    names(AB_nonForRaster) <- c("AB_nonForRaster")
-    AB_nonForRaster <- terra::mask(AB_nonForRaster, AB_forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
+    names(AB_landClassRaster) <- c("AB_landClassRaster")
+    AB_landClassRaster <- terra::mask(AB_landClassRaster, AB_forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
     #                         y = forClassRaster,
     #                         fun = function(x, y) {
     #                           x[!is.na(y[])] <- NA
@@ -1438,8 +1600,8 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
     #                         })
     # 
     # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    #plot(AB_nonForRaster, colNA = "grey")
+    # Plot(landClassRaster, na.color= "grey")
+    #plot(AB_landClassRaster, colNA = "grey")
    
      #get age raster
     print("get ageRaster from Drive")
@@ -1462,7 +1624,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
 
 #make landscape raster
   print("make landscapeRaster")
-  AB_landscapeRaster <- terra::cover(x = AB_forClassRaster, y = AB_nonForRaster)
+  AB_landscapeRaster <- terra::cover(x = AB_forClassRaster, y = AB_landClassRaster)
   
   names(AB_landscapeRaster) <- c("AB_landscapeRaster")
   
@@ -1555,9 +1717,9 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
     # Plot(forClassRaster, na.color= "grey")
     #plot(BC_forClassRaster, colNA = "grey")
     #get non forest raster
-    print("get nonForRaster from Drive")
-    BC_nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
-    BC_nonForRaster <- postProcess(BC_nonForRaster,
+    print("get landClassRaster from Drive")
+    BC_landClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif"))
+    BC_landClassRaster <- postProcess(BC_landClassRaster,
                                destinationPath = getwd(),
                                #use the function raster
                                fun = "terra::rast",
@@ -1570,11 +1732,11 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
                                overwrite = TRUE,
                                verbose = TRUE)
     
-    #nonForRaster[nonForRaster == 0] <- NA
+    #landClassRaster[landClassRaster == 0] <- NA
     
-    names(BC_nonForRaster) <- c("BC_nonForRaster")
-    BC_nonForRaster <- terra::mask(BC_nonForRaster, BC_forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
+    names(BC_landClassRaster) <- c("BC_landClassRaster")
+    BC_landClassRaster <- terra::mask(BC_landClassRaster, BC_forClassRaster, inverse = TRUE)
+    # landClassRaster <- overlay(x = landClassRaster,
     #                         y = forClassRaster,
     #                         fun = function(x, y) {
     #                           x[!is.na(y[])] <- NA
@@ -1582,8 +1744,8 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
     #                         })
     # 
     # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    #plot(BC_nonForRaster, colNA = "grey")
+    # Plot(landClassRaster, na.color= "grey")
+    #plot(BC_landClassRaster, colNA = "grey")
    
      #get age raster
     print("get ageRaster from Drive")
@@ -1606,7 +1768,7 @@ landscapeSummary <- gridExtra::grid.arrange(plotClassCounts,
 
 #make landscape raster
   print("make landscapeRaster")
-  BC_landscapeRaster <- terra::cover(x = BC_forClassRaster, y = BC_nonForRaster)
+  BC_landscapeRaster <- terra::cover(x = BC_forClassRaster, y = BC_landClassRaster)
   
   names(BC_landscapeRaster) <- c("BC_landscapeRaster")
   
@@ -1655,12 +1817,12 @@ legend("bottom", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", 
 plot(AB_forClassRaster, main = 'Alberta forest class raster', legend = FALSE, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
 legend("bottomright", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce"), fill = cbPalette)
 
-#nonForRaster
-#plot(nonForRaster,colNA="grey70")
+#landClassRaster
+#plot(landClassRaster,colNA="grey70")
 # customizing the legend
 nf.legend <- legend("right", legend = c("Unmanaged Forest", "Water/Ice", "Wetland", "Anthro/Exposed Land", "Grass/Cropland", "Shrub", "Bryoid"), fill = cbPalette)
-plot(BC_nonForRaster, main = 'British Columbia land class raster', legend = FALSE, colNA="white", col = cbPalette, axes=FALSE, box=FALSE)
-plot(AB_nonForRaster, main = 'Alberta land class raster', legend = nf.legend, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
+plot(BC_landClassRaster, main = 'British Columbia land class raster', legend = FALSE, colNA="white", col = cbPalette, axes=FALSE, box=FALSE)
+plot(AB_landClassRaster, main = 'Alberta land class raster', legend = nf.legend, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
 
 
 
@@ -1673,7 +1835,7 @@ plot(BC_ageRaster, main = 'British Columbia age raster', colNA="white", range = 
 plot(AB_ageRaster, main = 'Alberta age raster', colNA="white", range = r.range, col = cbPalette, axes=FALSE, box = FALSE)  
   
 
-# AB_rasters <- c(BC_nonForRaster, BC_forClassRaster, BC_ageRaster)
+# AB_rasters <- c(BC_landClassRaster, BC_forClassRaster, BC_ageRaster)
 # 
 # plot(AB_rasters, col = cbPalette, colNA="white", axes=FALSE, box = FALSE)
 # op <- par(mfrow = c(2,1),
@@ -1690,163 +1852,6 @@ plot(AB_ageRaster, main = 'Alberta age raster', colNA="white", range = r.range, 
 ```
 
 
-## (single study area) landscape rasters maps
-
-
-```{r singleStudyAreaLandscapeRasterMaps, echo=FALSE}
-
-# GET RASTERS
-
- #get rasterToMatch
-    print("get rasterTomatch from local drive")
-    rasterToMatch <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/LCCProducts/LCC05/LCC2005_V1_4a.tif"))
-   
-    
-    #get StudyArea shapefile
-    print("get studyArea shapefile from local drive")
-    studyArea <- terra::vect(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/studyAreaAB.shp"))
-    
-    #postProcess studyArea
-    studyArea <- reproducible::postProcess(studyArea,
-                                               destinationPath = getwd(),
-                                               filename2 = "studyArea", 
-                                               useTerra = TRUE,
-                                               fun = "terra::vect", #use the function vect
-                                               targetCRS = crs(rasterToMatch), #make crs same as rasterToMatch
-                                               overwrite = TRUE,
-                                               verbose = TRUE)
-    
-    #crop and mask rasterToMatch
-    rasterToMatch <- terra::mask(terra::crop(rasterToMatch, studyArea), studyArea) 
-    names(rasterToMatch) <- "rasterToMatch"
-    # clearPlot()
-    # Plot(sim$rasterToMatch)
-    #plot(AB_rasterToMatch, colNA = "grey")
-    
-    # get forest class raster
-    print("get forClassRaster from Drive")
-    forClassRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/vegTypesRas_ABNew_0722.tif"))
-    forClassRaster <- postProcess(forClassRaster,
-                                      destinationPath = getwd(),
-                                     #use the function raster
-                                     targetCRS = crs(rasterToMatch),
-                                     fun = "terra::rast",
-                                     useTerra = TRUE,
-                                     #use the specified rasterToMatch to reproject to
-                                     rasterToMatch = rasterToMatch,
-                                     #studyArea = studyArea,
-                                     useCache = getOption("reproducible.useCache", TRUE),
-                                     overwrite = TRUE,
-                                     verbose = TRUE)
-    
-    names(forClassRaster) <- c("forClassRaster")
-    
-    forClassRaster[forClassRaster == 0] <- NA
-    
-    #reclassify to Class Names
-   fcrValue <- c(1, 2, 3, 4, 5, 6, 7)
-   fcrLabel <- c("1", "2", "3", "4", "5", "6", "7")
-   fcrLabelReclass <- c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce")
-   fcrReclassified <- data.frame( fcrValue, fcrLabel, fcrLabelReclass)
-   fcrReclassified$fcrLabelReclass <- as.factor(fcrReclassified$fcrLabelReclass)
-   print(fcrReclassified)
-   str(fcrReclassified)
- 
-  forClassRaster <- categories(forClassRaster, value=fcrReclassified, active = 2)
-
-    
-     # clearPlot()
-    # Plot(forClassRaster, na.color= "grey")
-    #plot(AB_forClassRaster, colNA = "grey")
-    #get non forest raster
-    print("get nonForRaster from Drive")
-    nonForRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif"))
-    nonForRaster <- postProcess(nonForRaster,
-                               destinationPath = getwd(),
-                               #use the function raster
-                               fun = "terra::rast",
-                               targetCRS = crs(rasterToMatch),
-                               #use the specified rasterToMatch to reproject to
-                               rasterToMatch = rasterToMatch,
-                               useTerra = TRUE,
-                               #studyArea = sim$studyArea,
-                               useCache = getOption("reproducible.useCache", TRUE),
-                               overwrite = TRUE,
-                               verbose = TRUE)
-   #reclassify to Class Names
-   lcrValue <- c(0, 1, 2, 3, 4, 5, 6)
-   lcrLabel <- c("0", "1", "2", "3", "4", "5", "6")
-   lcrLabelReclass <- c("Unmanaged Forest", "Water/Ice", "Wetland", "Anthro/Explosed Land", "Grass/Cropland", "Shrub", "Bryoid")
-   lcrReclassified <- data.frame( lcrValue, lcrLabel, lcrLabelReclass)
-   lcrReclassified$lcrLabelReclass <- as.factor(lcrReclassified$lcrLabelReclass)
-   print(lcrReclassified)
-   str(lcrReclassified)
- 
-  nonForRaster <- categories(nonForRaster, value=lcrReclassified, active = 2)
-
-    
-    names(nonForRaster) <- c("nonForRaster")
-    nonForRaster <- terra::mask(nonForRaster, forClassRaster, inverse = TRUE)
-    # nonForRaster <- overlay(x = nonForRaster,
-    #                         y = forClassRaster,
-    #                         fun = function(x, y) {
-    #                           x[!is.na(y[])] <- NA
-    #                           return(x)
-    #                         })
-    # 
-    # clearPlot()
-    # Plot(nonForRaster, na.color= "grey")
-    #plot(AB_nonForRaster, colNA = "grey")
-   
-     #get age raster
-    print("get ageRaster from Drive")
-    ageRaster <- terra::rast(file.path("C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/ageRas_ABNew_0722.tif"))
-    ageRaster <- postProcess(ageRaster,
-                                destinationPath = getwd(),
-                                #use the function raster
-                                useTerra = TRUE,
-                                fun = "terra::rast",
-                                #targetCRS = crs(rasterToMatch),
-                                #use the specified rasterToMatch to reproject to
-                                rasterToMatch = rasterToMatch,
-                                #studyArea = studyArea,
-                                useCache = getOption("reproducible.useCache", TRUE),
-                                overwrite = TRUE,
-                                verbose = TRUE)
-    
-    names(ageRaster) <- c("ageRaster")
-    #plot(AB_ageRaster, colNA = "grey")
-
-#make landscape raster
-  print("make landscapeRaster")
-  landscapeRaster <- terra::cover(x = forClassRaster, y = nonForRaster)
-  
-  names(landscapeRaster) <- c("landscapeRaster")
-  
-
-plot(landscapeRaster, main = "Landscape raster", legend = TRUE, colNA = "white", axes = FALSE, box = FALSE)
-
-
-plot(forClassRaster, main = 'Forest class raster', legend = TRUE, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
-# legend("bottomright", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce"), fill = cbPalette)
-
-#nonForRaster
-#plot(nonForRaster,colNA="grey70")
-# customizing the legend
-plot(nonForRaster, main = 'Land class raster', legend = TRUE, col = cbPalette, colNA="white", axes=FALSE, box=FALSE)
-#nf.legend <- legend("right", legend = c("0" = "Unmanaged Forest", "1" = "Water/Ice", "2" = "Wetland", "3" = "Anthro/Exposed Land", "4" = "Grass/Cropland", "5" = "Shrub", "6" = "Bryoid"), fill = cbPalette)
-
-
-
-#ageRaster
-# min_ = min(min(terra::unique(AB_ageRaster)), min(terra::unique(BC_ageRaster)))
-# max_ = max(max(terra::unique(AB_ageRaster)), max(terra::unique(BC_ageRaster)))
-# r.range = c(min_, max_)
-
-plot(ageRaster, main = 'Age raster', colNA="white", axes=FALSE, box = FALSE)  
-  
-
-```
 
 
 ## PLOT MAIN 1D PREDICTION RESULTS
