@@ -60,18 +60,29 @@ library("sf")
 
 
 #############################################################################################
+outputsDir <- checkPath("../../outputs", create = TRUE)
+inputsDir <- checkPath("../../inputs", create = TRUE)
 
-rasterToMatch <- prepInputsLCC(year = 2005)
+setPaths(modulePath = file.path("../../modules"),
+         cachePath = file.path("../../cache"),
+         scratchPath = file.path("../../scratch"),
+         inputPath = inputsDir,
+         outputPath = outputsDir)
+
+rasterToMatchLocation <- file.path(inputsDir, "LCC2005_V1_4a.tif")
+rasterToMatch <- terra::rast(rasterToMatchLocation)
+#rasterToMatch <- prepInputsLCC(year = 2005)
 
 #get StudyArea shapefile
 print("get studyArea shapefile from local drive")
-studyArea <- read_sf(file.path("C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/BCR6_BC.shp"))
+
+studyArea <- terra::vect("../../inputs/studyArea/studyArea_AB_BCR6/studyArea_AB_BCR6.shp")
 
 #postProcess studyArea
 studyArea <- reproducible::postProcess(studyArea,
                                        destinationPath = getwd(),
                                        filename2 = "studyArea", 
-                                       useTerra = FALSE,
+                                       #useTerra = FALSE,
                                        #fun = "sf", #use the function vect
                                        targetCRS = crs(rasterToMatch), #make crs same as rasterToMatch
                                        overwrite = TRUE,
@@ -82,21 +93,30 @@ rasterToMatch <- mask(rasterToMatch, studyArea)
 names(rasterToMatch) <- "rasterToMatch"
 plot(rasterToMatch)
 
-LCC10 <- prepInputsLCC(year = 2010, rasterToMatch = rasterToMatch)
+#LCC10 <- prepInputsLCC(year = 2010, rasterToMatch = rasterToMatch)
+LCC10Location <- file.path(inputsDir, "CAN_LC_2010_CAL.tif")
+LCC10 <- terra::rast(LCC10Location)
+LCC10 <- postProcessTerra(from = LCC10,
+                          to = rasterToMatch,
+                          overwrite = FALSE,
+                          verbose = TRUE)
 LCC10 
 plot(LCC10)
 
-valsLCC10 <- getValues(LCC10)
-uniqueValsLCC10 <- unique(valsLCC10)
+valsLCC10 <- values(LCC10)
+uniqueValsLCC10 <- sort(unique(valsLCC10))
 
 
 reclassTab <- read.csv("C:/Users/RALAS6/Documents/Repositories/SpaDES/inputs/LCC10_reclass.csv", sep = ";", header = TRUE)
-
-landCoverClassRaster <- reclassify(LCC10, reclassTab)
+reclassTab$landCoverClass <- as.factor(reclassTab$landCoverClass)
+landCoverClassRaster <- terra::classify(LCC10, reclassTab)
 landCoverClassRaster
 plot(landCoverClassRaster)
 is.factor(landCoverClassRaster)
-writeRaster(landCoverClassRaster, "C:/Users/RALAS6/Documents/Repositories/Data/BCR6-BC/landClassRaster_BC_202305.tif")
-#writeRaster(landCoverClassRaster, "C:/Users/RALAS6/Documents/Repositories/Data/studyAreaAB/landClassRaster_AB_202305.tif")
 
-#BUT CAN I DO THIS USING TERRA? AND CAN I INSERT IT INTO ANA'S MODULE? 
+
+terra::writeRaster(x = landCoverClassRaster,
+                   filename = file.path(outputsDir, "landCoverRas_AB_BCR6_2010"),
+                   filetype= "GTiff",
+                   gdal="COMPRESS=NONE",
+                   overwrite = TRUE)

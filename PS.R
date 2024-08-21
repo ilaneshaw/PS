@@ -328,8 +328,19 @@ do1DPreds <- function(sim) {
                                       ifelse(!is.na(forClass), "forClass", NA)))]
     birdDataset <- birdDataset[!is.na(FoLRaster)] #get rid of cells with no forest or land class data.
     
+    #set data types  
+    birdDataset$landClass <- as.factor(birdDataset$landClass) 
+    birdDataset$forClass <- as.factor(birdDataset$forClass)
+    birdDataset$FoLRaster <- as.factor(birdDataset$FoLRaster)
+    birdDataset$age <- as.integer(birdDataset$age)
+    birdDataset$birdDensity <- as.numeric(birdDataset$birdDensity)
+    
+    
     #make column giving the land or forest class for each row. 
     birdDataset <- birdDataset[, landForClass := coalesce(forClass, landClass)]
+    #set data type
+    birdDataset$landForClass <- as.factor(birdDataset$landForClass)
+    
     #in case there are classes named the same in both rasters, combine the landForClass and FoLRaster data to make sure each class is unique
     birdDataset <- unite(birdDataset, 
                         landForClass, 
@@ -338,13 +349,7 @@ do1DPreds <- function(sim) {
                         remove=FALSE)
     print(sort(unique(birdDataset$landForClass)))
     birdDataset <- as.data.table(birdDataset)
-    
-    #set data types
-    birdDataset$landClass <- as.factor(birdDataset$landClass) 
-    birdDataset$forClass <- as.factor(birdDataset$forClass)
-    birdDataset$FoLRaster <- as.factor(birdDataset$FoLRaster) 
-    birdDataset$landForClass <- as.factor(birdDataset$landForClass)
-    
+  
     
     nrowCV <- nrow(birdDataset)
     birdDataset$birdSp <- rep(bird, nrowCV)
@@ -801,31 +806,27 @@ map2D <- function(sim) {
     # terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster)
 
 
-    #reform matrix
+    #reform matrix to make reclassification tab
     matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
     reclassTab2D <- reshape2::melt(matrix)
     colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
-    fromVals <- reclassTab2D[1:2]
-    fromVals <- data.matrix(fromVals)
-    toVals <- reclassTab2D[[3]]
-
-    #reclassify new raster based on forClassRaster and ageClass Raster
-    origRas <- c(sim$forClassRaster, sim$ageClassRaster)
-    raster2DBins <- subst(origRas, fromVals, toVals)
-
+  
     #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
-    #raster2DBins <- terra::rast(sim$forClassRaster); raster2DBins[] = NA #make an empty NA raster the same as forClassRaster
-
-    #make dataframe of all the data in forClassRaster and ageClassRaster and give each cell/row a new definition column, birdDensityPred, from reclassTab2d
-    # f = data.frame(forClass=sim$forClassRaster[], ageClass=sim$ageClassRaster[])
-    # vec = c(1:nrow(f))
-    # f[,3] = vec
-    # m = merge(f, reclassTab2D, all.x=TRUE)
-    # colnames(m)[3] = "ord"
-    # m = m[order(m$ord),]
-    # #populate raster2DBins with the birdDensityPred row of the table m
-    # raster2DBins[] = m$birdDensityPred
-
+    #make an empty NA raster the same as forClassRaster 
+    raster2DBins <- terra::rast(sim$forClassRaster); raster2DBins[] = NA 
+    
+    
+    # Combine categories and match with reclassification data
+    forClassValues <- terra::values(sim$forClassRaster)
+    ageClassValues <- terra::values(sim$ageClassRaster)
+    raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
+    colnames(raster2DBinsValues) <- c( "forClass","ageClass")
+    raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
+    raster2DBinsValues <- raster2DBinsValues$birdDensityPred
+    
+    # Assign values to the result raster
+    values(raster2DBins) <- raster2DBinsValues
+    
     names(raster2DBins) <- paste(bird)
 
     #check the new raster
@@ -1138,14 +1139,15 @@ map2D <- function(sim) {
     }
     
     #crop and mask rasterToMatch
-    sim$rasterToMatch <- terra::mask(terra::crop(sim$rasterToMatch, sim$studyArea), sim$studyArea) 
+    sim$rasterToMatch <- reproducible::Cache(terra::crop, sim$rasterToMatch, sim$studyArea)
+    sim$rasterToMatch <- reproducible::Cache(terra::mask, sim$rasterToMatch, sim$studyArea) 
     names(sim$rasterToMatch) <- "rasterToMatch"
     
     # get forest class raster
     if (!suppliedElsewhere("forClassRaster", sim)) {
       print("get forClassRaster from local Drive")
       sim$forClassRaster <- terra::rast(file.path(P(sim)$folderUrlForClass, P(sim)$nameForClassRaster))
-      sim$forClassRaster <- postProcess(sim$forClassRaster,
+      sim$forClassRaster <- reproducible::Cache(reproducible::postProcess, sim$forClassRaster,
                                         #destinationPath = downloadFolderForestClass,
                                         #use the function raster
                                         #targetCRS = crs(sim$rasterToMatch),
@@ -1200,7 +1202,7 @@ map2D <- function(sim) {
     if (!suppliedElsewhere("ageRaster", sim)) {
       print("get ageRaster from Drive")
       ageRaster <- terra::rast(file.path(P(sim)$folderUrlAge, P(sim)$nameAgeRaster))
-      sim$ageRaster <- postProcess(ageRaster,
+      sim$ageRaster <- reproducible::Cache(reproducible::postProcess, ageRaster,
                                    #destinationPath = downloadFolderForestClass,
                                    #use the function raster
                                    useTerra = TRUE,

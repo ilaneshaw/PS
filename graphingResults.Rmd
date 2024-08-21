@@ -41,16 +41,16 @@ options(digits=3) #limit number of digits displayed
 birdList <- sort(c("BBWA", "BRCR", "CAWA", "DEJU", "OVEN"))
 dev.new()
 cbPalette <- c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", "#CC79A7", "#999999","black")
-cbPalette2 <-  c( "#56B4E9",  "#0072B2","#009E73", "#F0E442","#E69F00","#D55E00", "#CC79A7", "#999999","black")
+
 
 
 inputsDir <- checkPath("../../inputs", create = TRUE)
 rasterToMatchLocation <- file.path(inputsDir, "LCC2005_V1_4a.tif")
 ### STUDY AREA ONE DETAILS
 studyAreaLocation <- checkPath(file.path(inputsDir, "studyArea/studyArea_AB_BCR6/studyArea_AB_BCR6.shp"))
-forClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/vegTypesRas_AB_BCR6"), create = TRUE)
-ageRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/ageRas_AB_BCR6"), create = TRUE)
-landClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/landCoverRas_AB_BCR6"), create = TRUE)
+forClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/vegTypesRas_AB_BCR6_2011"), create = TRUE)
+ageRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/ageRas_AB_BCR6_2011"), create = TRUE)
+landClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/landCoverRas_AB_BCR6_2010"), create = TRUE)
 
 
 
