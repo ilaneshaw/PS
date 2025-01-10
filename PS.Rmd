@@ -171,27 +171,25 @@ simPaths <- getPaths()
 
 
 #parameters from local
-#birdList <- sort(c("CAWA", "OVEN"))
+birdList <- sort(c("CAWA", "DEJU", "OVEN"))
 #birdList <- sort(c("ALFL", "AMCR", "AMGO", "AMRO", "BANS", "BAOR", "BARS", "BAWW", "BBMA", "BBWA", "BBWO", "BCCH", "BHCO", "BHVI", "BLBW", "BLJA", "BLPW", "BOBO", "BOCH", "BOWA", "BRBL", "BRCR", "BTNW", "CAWA", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COGR", "CONW", "CORA", "COYE", "CSWA", "DEJU", "EAKI", "EUST", "FOSP", "GCKI", "GRAJ", "GRCA", "HAFL", "HAWO", "HETH", "HOLA", "HOSP", "HOWR", "KILL", "LCSP", "LEFL", "MOWA", "OVEN", "PAWA", "PHVI", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "WETA", "WIWR", "YRWA"))
 #new AB study Area bird list (25% prob of occurrence in 1% of the area)
-birdList <- sort(c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO", "BOCH", 
-                   "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE",
-                   "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN",
-                   "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
+# birdList <- sort(c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO", "BOCH", 
+#                    "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE",
+#                    "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN",
+#                    "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
 rasterToMatchLocation <- inputsDir
 rasterToMatchName <- "LCC2005_V1_4a.tif"
 studyAreaLocation <- downloadFolderArea
 nameBCR <- "60"
 .studyAreaName <- "studyArea_AB_BCR6.shp"
-nameForClassRaster <-  "vegTypesRas_AB_BCR6_2011.tif"
+nameForClassRaster <-  "vegTypesRas_AB_BCR6_2011"
 folderUrlForClass = downloadFolderForestClass
-nameLandClassRaster = "landClassRaster_AB_BCR6_2010.tif"
+nameLandClassRaster = "landCoverRas_AB_BCR6_2010"
 folderUrlLandClass = downloadFolderForestClass
-nameAgeRaster = "ageRas_AB_BCR6_2011.tif"
+nameAgeRaster = "ageRas_AB_BCR6_2011"
 folderUrlAge = downloadFolderForestClass
 folderUrlBirdRaster <- downloadFolderBird
-
-
 
 
 
@@ -201,6 +199,7 @@ simModules <- list("PS")
 simTimes <- list(start = 1, end = 1, timeunit = "year")
 simParams <- list(
     PS = list( doPredsInitialTime = 1,
+               simulationTimeStep = 10, 
                .plotInitialTime = 1,
                .saveInitialTime = 1,
                fromDrive = FALSE,

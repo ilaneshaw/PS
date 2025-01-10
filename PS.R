@@ -16,7 +16,7 @@ defineModule(sim, list(
   citation = list("citation.bib"),
   documentation = list("README.md", "PS.Rmd"), ## same file
   reqdPkgs = list("PredictiveEcology/SpaDES.core@development", "ggplot2", "sf", "data.table", "terra",
-                  "LandR", "googledrive", "plotrix", "ggpubr", "diptest", "nortest", "dplyr", "tidyverse", "reshape2"),
+                  "LandR", "googledrive", "plotrix","ggplot2", "ggpubr", "diptest", "nortest", "dplyr", "tidyverse", "reshape2"),
   parameters = bindrows(
     #defineParameter("paramName", "paramClass", value, min, max, "parameter description"),
     defineParameter(".plots", "character", "screen", NA, NA,
@@ -42,9 +42,9 @@ defineModule(sim, list(
                     "do smoothing by cover class only (1D)? if FALSE smoothing will be done by forest type and age class where possible"),
     defineParameter("nTrees", "numeric", 5000, NA, NA,
                     "number of trees for gbm to build"),
-    defineParameter("maxAgeClass", "numeric", 15, NA, NA,
+    defineParameter("maxAgeClass", "numeric", 8, NA, NA,
                     "what the oldest age class will be (everything older will be included in this class)"),
-    defineParameter("ageGrouping", "numeric", 10, NA, NA,
+    defineParameter("ageGrouping", "numeric", 20, NA, NA,
                     "how many years included per age class"),
     defineParameter("birdList", "character", NA, NA, NA,
                     "a list of bird species in the format of 4-letter bird codes"),
@@ -132,7 +132,7 @@ doEvent.PS = function(sim, eventTime, eventType) {
                              moduleName = "PS", eventType = "do2DPreds")
         sim <- scheduleEvent(sim, eventTime = P(sim)$doPredsInitialTime,
                              moduleName = "PS", eventType = "map2D")
-        # sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "PS", "plot")
+        sim <- scheduleEvent(sim, P(sim)$.plotInitialTime, "PS", "plot")
         # sim <- scheduleEvent(sim, P(sim)$.saveInitialTime, "PS", "save")
       }
       
@@ -146,7 +146,7 @@ doEvent.PS = function(sim, eventTime, eventType) {
       # schedule future event(s)
 
       # e.g.,
-      #sim <- scheduleEvent(sim, time(sim) + P(sim)$.plotInterval, "PS", "plot")
+      sim <- scheduleEvent(sim, time(sim) + P(sim)$.plotInterval, "PS", "plot")
 
       # ! ----- STOP EDITING ----- ! #
     },
@@ -262,33 +262,114 @@ plotFun <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
   # do stuff for this event
   
-  sampleData <- data.frame("TheSample" = sample(1:10, replace = TRUE))
-  Plots(sampleData, fn = ggplotFn)
+  # sampleData <- data.frame("TheSample" = sample(1:10, replace = TRUE))
+  # Plots(sampleData, fn = ggplotFn)
   
-  # #rasterToMatch
-  # 
-  # Plot(sim$rasterToMatch, colNA="grey70")
-  # 
-  # #forClassRaster
-  # Plot(sim$forClassRaster, colNA="grey70")
-  # # customizing the legend
-  # # Plot(sim$forClassRaster, legend = FALSE, col = rev(terrain.colors(7)), colNA="grey70")
-  # # legend("bottomright", legend = c("Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce"), fill = rev(terrain.colors(7)))
-  # # 
-  # #landClassRaster
-  # Plot(sim$landClassRaster,colNA="grey70")
-  # # customizing the legend
-  # #Plot(sim$landClassRaster, legend = FALSE, col = rev(terrain.colors(7)), colNA="grey70")
-  # #legend("bottomright", legend = c("Forested", "Water/Ice", "Wetland", "Anthro/Exposed Land", "Grass/Cropland", "Shrub", "Bryoid"), fill = rev(terrain.colors(7)))
-  # 
-  # #ageRaster
-  # Plot(sim$ageRaster, main = 'ageRaster', colNA="grey70" )
-  # 
-  # #landscapeRaster
-  # Plot(sim$landscapeRaster, colNA="grey70") 
-  # 
-  # #FNFRaster
-  # Plot(sim$FNFRaster, colNA="grey70") 
+  clearPlot()
+  
+  #PLOT INPUT LANDSCAPE RASTERS
+ 
+  #rasterToMatch
+  quickPlot::Plot(sim$rasterToMatch, na.color = "blue", title = "Raster To Match", new = TRUE, legend = TRUE)
+  clearPlot()
+  
+  #forClassRaster
+  # quickPlot::Plot(sim$forClassRaster, na.color = "blue", title = "Forest Class raster", new = TRUE, legend = TRUE)
+  # clearPlot()
+  
+  #landClassRaster
+  quickPlot::Plot(sim$landClassRaster, na.color = "blue", title = "Land Class Raster", new = TRUE, legend = TRUE)
+  clearPlot()
+  
+  #ageRaster
+  quickPlot::Plot(sim$ageRaster, na.color = "blue", title = "Age Raster", new = TRUE, legend = TRUE)
+  clearPlot()
+  
+  
+  
+  #PLOT KERNEL DENSIY PLOTS
+    lapply(P(sim)$birdList, FUN= function(bird){
+    
+    
+      birdDataset <- eval(parse(text=paste("sim$birdDatasets$", bird, sep = "")))
+      birdDataset$landForClass <- as.factor(birdDataset$landForClass)
+      birdDataset$birdSp <- as.factor(birdDataset$birdSp)
+      birdDataset$age <- as.integer(birdDataset$age)
+      
+      if (requireNamespace("ggplot2")) {
+       kernelDensityPlot <- birdDataset |> ggplot2::ggplot(ggplot2::aes(x=birdDensity, fill=factor(landForClass))) +
+          geom_density() +
+          facet_wrap( ~ landForClass, 
+                      scales = "free_y") +
+          theme_classic() +
+          ggtitle(paste("Kernel density plots for ", bird, " by forest or land cover class", sep = "")) +
+          xlab("Predicted density (male birds per hectare)")  +
+          ylab("Occurence of density value") 
+        clearPlot()
+        Plot(kernelDensityPlot, title = NULL) 
+      }
+     
+  })
+  
+  
+    #PLOT 1D Predictions
+    lapply(P(sim)$birdList, FUN= function(bird){
+      
+      browser()
+      birdPred <- eval(parse(text=paste("sim$birdPreds1D$", bird, sep = "")))
+      birdPred$landForClass <- as.factor(birdPred$landForClass)
+      birdPred$FoLRaster <- as.factor(birdPred$FoLRaster)
+      birdPred$birdSp <- as.factor(birdPred$birdSp)
+      
+      if (requireNamespace("ggplot2")) {
+        birdPred1DPlot <- birdPred |> ggplot2::ggplot(ggplot2::aes(x = landForClass,
+                                                                   y = meanBirdDensity,
+                                                                   fill = landForClass)) +
+          geom_bar(stat = "identity") +
+          geom_errorbar(aes(ymin = meanBirdDensity - seBirdDensity,
+                            ymax = meanBirdDensity + seBirdDensity),
+                        width = .5) +
+          theme_classic() +
+          ggtitle(paste("Mean density predictions for ", bird, sep = "")) +
+          xlab("Land or Forest Class") +
+          ylab("Mean Predicted Density (male birds per hectare)") +
+          theme(axis.text.x = element_text( angle = 45, hjust = 1),
+                legend.title = element_blank())
+        
+        clearPlot()
+        Plot(birdPred1DPlot, title = NULL) 
+      }
+      
+    })
+  
+    
+    #PLOT 2D PREDICTIONS
+    # lapply(P(sim)$birdList, FUN= function(bird){
+    #   
+    #   #browser()
+    #   # birdPred <- eval(parse(text=paste("sim$birdPreds1D$", bird, sep = "")))
+    #   # birdPred$landForClass <- as.factor(birdPred$landForClass)
+    #   # birdPred$FoLRaster <- as.factor(birdPred$FoLRaster)
+    #   # birdPred$birdSp <- as.factor(birdPred$birdSp)
+    #   # 
+    #   # if (requireNamespace("ggplot2")) {
+    #   #   birdPred1DPlot <- birdPred |> ggplot2::ggplot(ggplot2::aes(x = landForClass,
+    #   #                                                              y = meanBirdDensity,
+    #   #                                                              fill = landForClass)) +
+    #   #     geom_bar(stat = "identity") +
+    #   #     geom_errorbar(aes(ymin = meanBirdDensity - seBirdDensity,
+    #   #                       ymax = meanBirdDensity + seBirdDensity),
+    #   #                   width = .5) +
+    #   #     theme_classic() +
+    #   #     ggtitle(paste("Mean density predictions by forest or land cover class for ", bird, sep = "")) +
+    #   #     xlab("Land or Forest Class") +
+    #   #     ylab("Mean Predicted Density (male birds per hectare)") 
+    #   #   clearPlot()
+    #   #   Plot(birdPred1DPlot, title = NULL) 
+    #   }
+    #   
+    # })
+    # 
   
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -543,11 +624,11 @@ map1D <- function(sim) {
     names(birdPredsRaster1D) <- paste(bird)
 
     #birdPredsRaster1D #visually check Raster
-    clearPlot()
-    Plot(birdPredsRaster1D, 
-         na.color = "blue", 
-         zero.color = "black", 
-         title = paste(bird,  " 1D smoothing map", sep = ""))
+    # clearPlot()
+    # Plot(birdPredsRaster1D, 
+    #      na.color = "blue", 
+    #      zero.color = "black", 
+    #      title = paste(bird,  " 1D smoothing map", sep = ""))
     
    
     print(birdPredsRaster1D)
@@ -622,11 +703,11 @@ do2DPreds <- function(sim) {
                           n.minobsinnode = 5,
                           bag.fraction = .80, 
                           train.fraction = 1) #same number of trees as used in predict.gbm
-    
+   
     #print summary of relative influence by the factors
     #par(mar = c(5, 8, 1, 1))
     relInfGBM <- summary(gbmFitted)
-    #relInfGBM
+    relInfGBM <- title(main = bird)
     # print(relInfGBM)
     # 
     #get Freidman's h-stat
@@ -637,8 +718,8 @@ do2DPreds <- function(sim) {
     # print(FriedmansHStat)
     # 
     # #check gbm plot
-    # # plotGBM <- gbm::plot.gbm(gbmFitted, i.var = c(1,2))
-    # # plot(plotGBM)
+    plotGBM <- gbm::plot.gbm(gbmFitted, i.var = c(1,2), main = bird, xlab = "Forest Age (yrs)", ylab = "Bird Density (males/ha)") 
+    plotGBM
     # 
     #make into single summary object
     # statsGBM <- list(relInfGBM, FriedmansHStat) #, plotGBM)
@@ -776,177 +857,177 @@ do2DPreds <- function(sim) {
 }
 
 map2D <- function(sim) {
-  # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
-
- 
-
- 
- #### GET 2D MAPS OF MATRIX PREDICTIONS
-   print("GET 2D MAPS")
-
-  print("make age class raster")
-  #reclassify forAgeRaster into a raster of forest age classes
-  ageReClassTab <- sim$birdPreds$ageClassDefs
-  ageReClassTab <- ageReClassTab[ , ageClasses:=as.numeric(ageClasses)] #change data type of ageClassDefs
-  str(ageReClassTab) #check
-  ageClassRaster <- sim$ageRaster #make copy of forAgeRaster to be reclassified
-  ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) #do the reclassification based on ageClassDefs
-  names(ageClassRaster) <- "ageClassRaster"
-  sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
-  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
-  print(sim$ageClassRaster)
-
-
-    #get for2Dmaps
-  print("get for2DMaps")
-  sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
-
-    print(bird)
-    # check that spatial extent is the same for ageClassraster and forClassraster
-    print("extent of forClassRaster same as ageClassRaster?")
-    print(terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster))
-    print("extent of forClassRaster same as the for1DMap Raster?")
-    print(terra::ext(eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))) == terra::ext(sim$forClassRaster)) 
-    print("same number of cells forClassRaster  as the for1DMap Raster?")
-    print(length(terra::values(eval(parse(text=paste("sim$for1DMaps$", bird, sep = ""))))) == length(terra::values(sim$forClassRaster))) 
-
-
-    #reform matrix to make reclassification tab
-    matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
-    map1D <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
-    raster2DBins <-  map1D
-    
-    
-    reclassTab2D <- reshape2::melt(matrix)
-    colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
-    reclassTab2D <- as.data.table(reclassTab2D)
-    reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
-    reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
-    #reclassTab2D <- rbind(reclassTab2D, c(NA, NA, NA))
-    #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
-    #make an empty NA raster the same as the for1DMap 
-    # raster2DBins[] <- NA
-    
-    
-    # # Combine categories and match with reclassification data
-    # forClassValues <- terra::values(sim$forClassRaster)
-    # ageClassValues <- terra::values(sim$ageClassRaster)
-    # raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
-    # colnames(raster2DBinsValues) <- c( "forClass","ageClass")
-    # raster2DBinsValues$forClass <- as.factor(raster2DBinsValues$forClass)
-    # raster2DBinsValues$ageClass <- as.factor(raster2DBinsValues$ageClass)
-    # raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
-    # raster2DBinsValues <- raster2DBinsValues$birdDensityPred
-    # raster2DBinsValues <- raster2DBinsValues[!is.na(raster2DBinsValues)]
-    # 
-    # Create a function to map raster values to density values
-    
-    # Define the function to map raster values to density values
-    map_density <- function(x, y, reclassTab2D) {
-    
-      # Handle NA values: If either x or y is NA, return NA
-      if (is.na(x) || is.na(y)) {
-        return(NA)
-      }
-     
-      # Look up the density value based on x and y
-      density_value <- reclassTab2D[forClass == x & ageClass == y, birdDensityPred]
-      
-      # Return density value if found, otherwise NA
-      if (length(density_value) == 0) {
-        print("warning! did not find density_value")
-        return(NA)
-      } else {
-        return(density_value)
-      }
-    }
-    
-    # Define a function to apply to raster layers using app
-    calc_density_raster <- function(x, y) {
-      mapply(map_density, x, y, MoreArgs = list(reclassTab2D = reclassTab2D))
-    }
-    
-    # Apply the function to the raster layers
-    raster2DBins <- app(c(sim$forClassRaster, sim$ageClassRaster), fun = function(x) calc_density_raster(x[[1]], x[[2]]))
-    
-    names(raster2DBins) <- paste(bird)
-
-    #check the new raster
-    print(raster2DBins)
-     # clearPlot()
-     # Plot(raster2DBins, na.color = "blue", title = bird)
-
-    # terra::writeRaster(x = raster2DBins,
-    #                    filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DMap", sep = "")),
-    #                    filetype= "GTiff",
-    #                    gdal="COMPRESS=NONE",
-    #                    overwrite = TRUE)
-
-   
-
-    return(raster2DBins)
-  })
-
-  names(sim$for2DMaps) <- P(sim)$birdList
-
-  #as Rdata file
-
-  # save(for2DMaps,
-  #      file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
-  # # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
-  # sim$for2DMaps <- for2DMaps
-
-  # get 2D map with Lc areas filled in with 1D predictions
-  print("get for2DAndLc1DMaps")
-
-  sim$for2DAndLc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
-
-    print(bird)
-    raster1DBins <- eval(parse(text=paste("sim$lc1DMaps$", bird, sep = "")))
-    raster2DBins <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
-
-    birdPredsRaster <- terra::cover(x = raster2DBins,
-                             y = raster1DBins)
-
-    names(birdPredsRaster) <- paste(bird)
-
-    #birdPredsRaster #visually check Raster
-    clearPlot()
-    Plot(birdPredsRaster, na.color = "blue", title = paste(bird,  " 2D smoothing map", sep = ""))
-
-    # writeRaster(x = birdPredsRaster, filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-birdPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
-
-    print(paste(bird,"for 2D and lc 1D map raster complete"))
-    return(birdPredsRaster)
-  })
-
-  names(sim$for2DAndLc1DMaps) <- birdList
-
-  print("save for2DAndLc1DMaps")
-
-  #as Rdata file
-
-  # save(for2DAndLc1DMaps,
-  #      file =  file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
-  # #load(file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
-  #
-  #as tif files
-
-
-  lapply(X = P(sim)$birdList, FUN = function(bird){
-    raster <- eval(parse(text=paste("sim$for2DAndLc1DMaps$", bird, sep = "")))
-    names(raster) <- paste(bird)
-    terra::writeRaster(x = raster,
-                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DAndLc1DMap", sep = "")),
-                       filetype= "GTiff",
-                       gdal="COMPRESS=NONE",
-                       overwrite = TRUE)
-  })
-
- 
+ #  # ! ----- EDIT BELOW ----- ! #
+ #  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
+ #  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
+ #  # sim$event1Test2 <- 999 # for dummy unit test
+ # 
+ # 
+ # 
+ # 
+ # #### GET 2D MAPS OF MATRIX PREDICTIONS
+ #   print("GET 2D MAPS")
+ # 
+ #  print("make age class raster")
+ #  #reclassify forAgeRaster into a raster of forest age classes
+ #  ageReClassTab <- sim$birdPreds$ageClassDefs
+ #  ageReClassTab <- ageReClassTab[ , ageClasses:=as.numeric(ageClasses)] #change data type of ageClassDefs
+ #  str(ageReClassTab) #check
+ #  ageClassRaster <- sim$ageRaster #make copy of forAgeRaster to be reclassified
+ #  ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) #do the reclassification based on ageClassDefs
+ #  names(ageClassRaster) <- "ageClassRaster"
+ #  sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
+ #  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
+ #  print(sim$ageClassRaster)
+ # 
+ # 
+ #    #get for2Dmaps
+ #  print("get for2DMaps")
+ #  sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+ # 
+ #    print(bird)
+ #    # check that spatial extent is the same for ageClassraster and forClassraster
+ #    print("extent of forClassRaster same as ageClassRaster?")
+ #    print(terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster))
+ #    print("extent of forClassRaster same as the for1DMap Raster?")
+ #    print(terra::ext(eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))) == terra::ext(sim$forClassRaster)) 
+ #    print("same number of cells forClassRaster  as the for1DMap Raster?")
+ #    print(length(terra::values(eval(parse(text=paste("sim$for1DMaps$", bird, sep = ""))))) == length(terra::values(sim$forClassRaster))) 
+ # 
+ # 
+ #    #reform matrix to make reclassification tab
+ #    matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
+ #    map1D <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
+ #    raster2DBins <-  map1D
+ #    
+ #    
+ #    reclassTab2D <- reproducible::Cache(reshape2::melt,matrix)
+ #    colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
+ #    reclassTab2D <- as.data.table(reclassTab2D)
+ #    reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
+ #    reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
+ #    #reclassTab2D <- rbind(reclassTab2D, c(NA, NA, NA))
+ #    #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
+ #    #make an empty NA raster the same as the for1DMap 
+ #    # raster2DBins[] <- NA
+ #    
+ #    
+ #    # # Combine categories and match with reclassification data
+ #    # forClassValues <- terra::values(sim$forClassRaster)
+ #    # ageClassValues <- terra::values(sim$ageClassRaster)
+ #    # raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
+ #    # colnames(raster2DBinsValues) <- c( "forClass","ageClass")
+ #    # raster2DBinsValues$forClass <- as.factor(raster2DBinsValues$forClass)
+ #    # raster2DBinsValues$ageClass <- as.factor(raster2DBinsValues$ageClass)
+ #    # raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
+ #    # raster2DBinsValues <- raster2DBinsValues$birdDensityPred
+ #    # raster2DBinsValues <- raster2DBinsValues[!is.na(raster2DBinsValues)]
+ #    # 
+ #    # Create a function to map raster values to density values
+ #    
+ #    # Define the function to map raster values to density values
+ #    map_density <- function(x, y, reclassTab2D) {
+ #    
+ #      # Handle NA values: If either x or y is NA, return NA
+ #      if (is.na(x) || is.na(y)) {
+ #        return(NA)
+ #      }
+ #     
+ #      # Look up the density value based on x and y
+ #      density_value <- reclassTab2D[forClass == x & ageClass == y, birdDensityPred]
+ #      
+ #      # Return density value if found, otherwise NA
+ #      if (length(density_value) == 0) {
+ #        print("warning! did not find density_value")
+ #        return(NA)
+ #      } else {
+ #        return(density_value)
+ #      }
+ #    }
+ #    
+ #    # Define a function to apply to raster layers using app
+ #    calc_density_raster <- function(x, y) {
+ #      mapply(map_density, x, y, MoreArgs = list(reclassTab2D = reclassTab2D))
+ #    }
+ #    
+ #    # Apply the function to the raster layers
+ #    raster2DBins <- app(c(sim$forClassRaster, sim$ageClassRaster), fun = function(x) calc_density_raster(x[[1]], x[[2]]))
+ #    
+ #    names(raster2DBins) <- paste(bird)
+ # 
+ #    #check the new raster
+ #    print(raster2DBins)
+ #     # clearPlot()
+ #     # Plot(raster2DBins, na.color = "blue", title = bird)
+ # 
+ #    # terra::writeRaster(x = raster2DBins,
+ #    #                    filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DMap", sep = "")),
+ #    #                    filetype= "GTiff",
+ #    #                    gdal="COMPRESS=NONE",
+ #    #                    overwrite = TRUE)
+ # 
+ #   
+ # 
+ #    return(raster2DBins)
+ #  })
+ # 
+ #  names(sim$for2DMaps) <- P(sim)$birdList
+ # 
+ #  #as Rdata file
+ # 
+ #  # save(for2DMaps,
+ #  #      file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+ #  # # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+ #  # sim$for2DMaps <- for2DMaps
+ # 
+ #  # get 2D map with Lc areas filled in with 1D predictions
+ #  print("get for2DAndLc1DMaps")
+ # 
+ #  sim$for2DAndLc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+ # 
+ #    print(bird)
+ #    raster1DBins <- eval(parse(text=paste("sim$lc1DMaps$", bird, sep = "")))
+ #    raster2DBins <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
+ # 
+ #    birdPredsRaster <- terra::cover(x = raster2DBins,
+ #                             y = raster1DBins)
+ # 
+ #    names(birdPredsRaster) <- paste(bird)
+ # 
+ #    #birdPredsRaster #visually check Raster
+ #    # clearPlot()
+ #    # Plot(birdPredsRaster, na.color = "blue", title = paste(bird,  " 2D smoothing map", sep = ""))
+ # 
+ #    # writeRaster(x = birdPredsRaster, filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-birdPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
+ # 
+ #    print(paste(bird,"for 2D and lc 1D map raster complete"))
+ #    return(birdPredsRaster)
+ #  })
+ # 
+ #  names(sim$for2DAndLc1DMaps) <- birdList
+ # 
+ #  print("save for2DAndLc1DMaps")
+ # 
+ #  #as Rdata file
+ # 
+ #  # save(for2DAndLc1DMaps,
+ #  #      file =  file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
+ #  # #load(file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
+ #  #
+ #  #as tif files
+ # 
+ # 
+ #  lapply(X = P(sim)$birdList, FUN = function(bird){
+ #    raster <- eval(parse(text=paste("sim$for2DAndLc1DMaps$", bird, sep = "")))
+ #    names(raster) <- paste(bird)
+ #    terra::writeRaster(x = raster,
+ #                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DAndLc1DMap", sep = "")),
+ #                       filetype= "GTiff",
+ #                       gdal="COMPRESS=NONE",
+ #                       overwrite = TRUE)
+ #  })
+ # 
+ # 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
@@ -973,186 +1054,186 @@ map2D <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
   if (P(sim)$fromDrive == TRUE) {
     
-    ### GET FILES FROM GOOGLE DRIVE ###
-    #get RasterToMatch
-    print("download rasterToMatch")
-    rasterToMatch <-  googledrive::drive_download(
-      file = P(sim)$rasterToMatchLocation,
-      overwrite = TRUE,
-      verbose = TRUE,
-      path = file.path(inputsDir, P(sim)$rasterToMatchName)) #download rasterTomatch from drive
-    sim$rasterToMatch <- terra::rast(file.path(inputsDir, P(sim)$rasterToMatchName)) #load raster into R
-    
-    # get studyArea shapefile
-    print("get studyArea shapefile from drive")
-    sim$studyArea <- prepInputs(targetFile = P(sim)$.studyAreaName,
-                                url = P(sim)$studyAreaLocation,
-                                archive = P(sim)$archiveStudyArea,
-                                alsoExtract = "similar", #Extract other files with similar names
-                                destinationPath = downloadFolderArea, #folder to download to
-                                #fun = "terra::vect", #use the function shapefile
-                                useTerra = TRUE,
-                                targetCRS = crs(sim$rasterToMatch), #make crs same as rasterToMatch
-                                overwrite = TRUE,
-                                verbose = TRUE)
-   
-    #crop and mask rasterTomatch to studyArea
-    sim$rasterToMatch <- terra::mask(terra::crop(sim$rasterToMatch, sim$studyArea), sim$studyArea)
-    names(sim$rasterToMatch) <- "rasterToMatch"
-    # dev()
-    # clearPlot()
-    # Plot(sim$rasterToMatch, na.color= "grey")
-    
-    # get forest class raster
-    print("get forClassRaster from Drive")
-    sim$forClassRaster <- prepInputs(targetFile = P(sim)$nameForClassRaster,
-                                 url = P(sim)$folderUrlForClass,
-                                 archive = P(sim)$archiveForClass,
-                                 #Extract other files with similar names
-                                 alsoExtract = "similar",
-                                 #save the file to a folder in the
-                                 #working directory called forestClassRasters
-                                 destinationPath = downloadFolderForestClass,
-                                 #use the function raster
-                                 targetCRS = crs(sim$rasterToMatch),
-                                 fun = "terra::rast",
-                                 useTerra = TRUE,
-                                 #use the specified rasterToMatch to reproject to
-                                 rasterToMatch = sim$rasterToMatch,
-                                 #studyArea = sim$studyArea,
-                                 useCache = getOption("reproducible.useCache", TRUE),
-                                 overwrite = TRUE,
-                                 verbose = TRUE)
-    
-    names(sim$forClassRaster) <- c("forClassRaster")
-    
-    sim$forClassRaster[sim$forClassRaster == 0] <- NA
-    
-    # clearPlot()
-    # Plot(sim$forClassRaster, na.color= "grey")
-  
-    #get land cover raster
-    print("get landClassRaster from Drive")
-    landClassRaster <- prepInputs(targetFile = P(sim)$nameLandClassRaster,
-                               url = P(sim)$folderUrlLandClass,
-                               archive = P(sim)$archiveLandClass,
-                               #Extract other files with similar names
-                               alsoExtract = "similar",
-                               #save the file to a folder in the
-                               #working directory called forestClassRasters
-                               destinationPath = downloadFolderForestClass,
-                               #use the function raster
-                               fun = "terra::rast",
-                               targetCRS = crs(sim$rasterToMatch),
-                               #use the specified rasterToMatch to reproject to
-                               rasterToMatch = sim$rasterToMatch,
-                               useTerra = TRUE,
-                               #studyArea = sim$studyArea,
-                               useCache = getOption("reproducible.useCache", TRUE),
-                               overwrite = TRUE,
-                               verbose = TRUE)
-    
-    #landClassRaster[landClassRaster == 0] <- NA
-    
-    names(landClassRaster) <- c("landClassRaster")
-    sim$landClassRaster <- terra::mask(landClassRaster, sim$forClassRaster, inverse = TRUE)
-    # sim$landClassRaster <- overlay(x = landClassRaster,
-    #                         y = sim$forClassRaster,
-    #                         fun = function(x, y) {
-    #                           x[!is.na(y[])] <- NA
-    #                           return(x)
-    #                         })
-    
-    # clearPlot()
-    # Plot(sim$landClassRaster, na.color= "grey")
-    # 
-    
-    
-    #get age raster
-    print("get ageRaster from Drive")
-    sim$ageRaster <- prepInputs(targetFile = P(sim)$nameAgeRaster,
-                            url = P(sim)$folderUrlAge,
-                            archive = P(sim)$archiveAge,
-                            #Extract other files with similar names
-                            alsoExtract = "similar",
-                            #save the file to a folder in the working directory
-                            #called forestClassRasters
-                            destinationPath = downloadFolderForestClass,
-                            #use the function raster
-                            useTerra = TRUE,
-                            fun = "terra::rast",
-                            #targetCRS = crs(sim$rasterToMatch),
-                            #use the specified rasterToMatch to reproject to
-                            rasterToMatch = sim$rasterToMatch,
-                            #studyArea = sim$studyArea,
-                            useCache = getOption("reproducible.useCache", TRUE),
-                            overwrite = TRUE,
-                            verbose = TRUE)
-    
-    names(sim$ageRaster) <- c("ageRaster")
-    
-    #get bird density rasters
-   # patternNameBirdRaster <- "mosaic-" #choose naming pattern to look for
-    patternNameBirdRaster <- "meanBoot_60" #choose naming pattern to look for
-    
-    ## drive_ls function is used to list all the files it finds using the folder url with the given pattern
-        filesToDownload <-
-          googledrive::drive_ls(path = as_id(P(sim)$folderUrlBirdRaster),
-                                pattern = patternNameBirdRaster)
-     
-          print(filesToDownload$name)
-
-         # grepl function searches for all items in the filesToDownload that are on birdList & stores their names in rastersforBirdList
-             sim$rastersForBirdList <-
-               filesToDownload$name[grepl(pattern = paste(P(sim)$birdList, collapse = "|"),
-                                          x = filesToDownload$name)]
-
-                 ## for each item in turn from rastersForBirdlist the following function is applied:
-             sim$birdRasters <-
-               lapply(
-                 X = sim$rastersForBirdList,
-                 FUN = function(rasterFile) {
-                   
-                   nameBird <- substr(rasterFile, 1, 4) #works for strings of the form "XXXX-meanBoot"
-                   #nameBird <- substr(rasterFile, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
-                   rasterFile <- paste(nameBird, "meanBoot-60.tif", sep = "")
-               
-                   ## if the item in rastersForBirdList is not already present at rastersPath, googledrive package downloads it
-                   if (!file.exists(file.path(downloadFolderBird, rasterFile))) {
-                     googledrive::drive_download(
-                       file = as_id(filesToDownload[filesToDownload$name %in% rasterFile,]$id),
-                        overwrite = TRUE,
-                       path = file.path(downloadFolderBird, nameBird)
-
-                     )
-                   }
-                  
-                   ## otherwise, if it is already present and downloaded, just get the name of the item
-                   return(terra::rast(file.path(downloadFolderBird, nameBird)))
-                 }
-               )
-
-             #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
-             X <- lapply(sim$rastersForBirdList, substr, 1, 4) #works for strings of the form "XXXX-meanBoot.tif"
-             #X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
-             names(sim$birdRasters) <- X
-            
-           sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
-             ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
-
-             proRaster <- reproducible::postProcess(RasterLayer,
-                                      #studyArea = sim$studyArea,
-                                      rasterToMatch = sim$rasterToMatch,
-                                      useTerra = TRUE,
-                                      fun = "terra::rast",
-                                      destinationPath = downloadFolderBird,
-                                      filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
-                                      overwrite = TRUE,
-                                      verbose = TRUE)
-             # clearPlot()
-             # Plot(proRaster, na.color= "grey")
-             return(proRaster)
-           })
+   #  ### GET FILES FROM GOOGLE DRIVE ###
+   #  #get RasterToMatch
+   #  print("download rasterToMatch")
+   #  rasterToMatch <-  googledrive::drive_download(
+   #    file = P(sim)$rasterToMatchLocation,
+   #    overwrite = TRUE,
+   #    verbose = TRUE,
+   #    path = file.path(inputsDir, P(sim)$rasterToMatchName)) #download rasterTomatch from drive
+   #  sim$rasterToMatch <- terra::rast(file.path(inputsDir, P(sim)$rasterToMatchName)) #load raster into R
+   #  
+   #  # get studyArea shapefile
+   #  print("get studyArea shapefile from drive")
+   #  sim$studyArea <- prepInputs(targetFile = P(sim)$.studyAreaName,
+   #                              url = P(sim)$studyAreaLocation,
+   #                              archive = P(sim)$archiveStudyArea,
+   #                              alsoExtract = "similar", #Extract other files with similar names
+   #                              destinationPath = downloadFolderArea, #folder to download to
+   #                              #fun = "terra::vect", #use the function shapefile
+   #                              useTerra = TRUE,
+   #                              targetCRS = crs(sim$rasterToMatch), #make crs same as rasterToMatch
+   #                              overwrite = TRUE,
+   #                              verbose = TRUE)
+   # 
+   #  #crop and mask rasterTomatch to studyArea
+   #  sim$rasterToMatch <- terra::mask(terra::crop(sim$rasterToMatch, sim$studyArea), sim$studyArea)
+   #  names(sim$rasterToMatch) <- "rasterToMatch"
+   #  # dev()
+   #  # clearPlot()
+   #  # Plot(sim$rasterToMatch, na.color= "grey")
+   # 
+   #  # get forest class raster
+   #  print("get forClassRaster from Drive")
+   #  sim$forClassRaster <- prepInputs(targetFile = P(sim)$nameForClassRaster,
+   #                               url = P(sim)$folderUrlForClass,
+   #                               archive = P(sim)$archiveForClass,
+   #                               #Extract other files with similar names
+   #                               alsoExtract = "similar",
+   #                               #save the file to a folder in the
+   #                               #working directory called forestClassRasters
+   #                               destinationPath = downloadFolderForestClass,
+   #                               #use the function raster
+   #                               targetCRS = crs(sim$rasterToMatch),
+   #                               fun = "terra::rast",
+   #                               useTerra = TRUE,
+   #                               #use the specified rasterToMatch to reproject to
+   #                               rasterToMatch = sim$rasterToMatch,
+   #                               #studyArea = sim$studyArea,
+   #                               useCache = getOption("reproducible.useCache", TRUE),
+   #                               overwrite = TRUE,
+   #                               verbose = TRUE)
+   #  
+   #  names(sim$forClassRaster) <- c("forClassRaster")
+   #  Plot(sim$forClassRaster, na.color= "grey")
+   #  sim$forClassRaster[sim$forClassRaster == 0] <- NA
+   #  
+   #  # clearPlot()
+   #  Plot(sim$forClassRaster, na.color= "grey")
+   # 
+   #  #get land cover raster
+   #  print("get landClassRaster from Drive")
+   #  landClassRaster <- prepInputs(targetFile = P(sim)$nameLandClassRaster,
+   #                             url = P(sim)$folderUrlLandClass,
+   #                             archive = P(sim)$archiveLandClass,
+   #                             #Extract other files with similar names
+   #                             alsoExtract = "similar",
+   #                             #save the file to a folder in the
+   #                             #working directory called forestClassRasters
+   #                             destinationPath = downloadFolderForestClass,
+   #                             #use the function raster
+   #                             fun = "terra::rast",
+   #                             targetCRS = crs(sim$rasterToMatch),
+   #                             #use the specified rasterToMatch to reproject to
+   #                             rasterToMatch = sim$rasterToMatch,
+   #                             useTerra = TRUE,
+   #                             #studyArea = sim$studyArea,
+   #                             useCache = getOption("reproducible.useCache", TRUE),
+   #                             overwrite = TRUE,
+   #                             verbose = TRUE)
+   #  
+   #  #landClassRaster[landClassRaster == 0] <- NA
+   #  
+   #  names(landClassRaster) <- c("landClassRaster")
+   #  sim$landClassRaster <- terra::mask(landClassRaster, sim$forClassRaster, inverse = TRUE)
+   #  # sim$landClassRaster <- overlay(x = landClassRaster,
+   #  #                         y = sim$forClassRaster,
+   #  #                         fun = function(x, y) {
+   #  #                           x[!is.na(y[])] <- NA
+   #  #                           return(x)
+   #  #                         })
+   #  
+   #  # clearPlot()
+   #  # Plot(sim$landClassRaster, na.color= "grey")
+   #  # 
+   #  
+   #  
+   #  #get age raster
+   #  print("get ageRaster from Drive")
+   #  sim$ageRaster <- prepInputs(targetFile = P(sim)$nameAgeRaster,
+   #                          url = P(sim)$folderUrlAge,
+   #                          archive = P(sim)$archiveAge,
+   #                          #Extract other files with similar names
+   #                          alsoExtract = "similar",
+   #                          #save the file to a folder in the working directory
+   #                          #called forestClassRasters
+   #                          destinationPath = downloadFolderForestClass,
+   #                          #use the function raster
+   #                          useTerra = TRUE,
+   #                          fun = "terra::rast",
+   #                          #targetCRS = crs(sim$rasterToMatch),
+   #                          #use the specified rasterToMatch to reproject to
+   #                          rasterToMatch = sim$rasterToMatch,
+   #                          #studyArea = sim$studyArea,
+   #                          useCache = getOption("reproducible.useCache", TRUE),
+   #                          overwrite = TRUE,
+   #                          verbose = TRUE)
+   #  
+   #  names(sim$ageRaster) <- c("ageRaster")
+   #  
+   #  #get bird density rasters
+   # # patternNameBirdRaster <- "mosaic-" #choose naming pattern to look for
+   #  patternNameBirdRaster <- "meanBoot_60" #choose naming pattern to look for
+   #  
+   #  ## drive_ls function is used to list all the files it finds using the folder url with the given pattern
+   #      filesToDownload <-
+   #        googledrive::drive_ls(path = as_id(P(sim)$folderUrlBirdRaster),
+   #                              pattern = patternNameBirdRaster)
+   #   
+   #        print(filesToDownload$name)
+   # 
+   #       # grepl function searches for all items in the filesToDownload that are on birdList & stores their names in rastersforBirdList
+   #           sim$rastersForBirdList <-
+   #             filesToDownload$name[grepl(pattern = paste(P(sim)$birdList, collapse = "|"),
+   #                                        x = filesToDownload$name)]
+   # 
+   #               ## for each item in turn from rastersForBirdlist the following function is applied:
+   #           sim$birdRasters <-
+   #             lapply(
+   #               X = sim$rastersForBirdList,
+   #               FUN = function(rasterFile) {
+   #                 
+   #                 nameBird <- substr(rasterFile, 1, 4) #works for strings of the form "XXXX-meanBoot"
+   #                 #nameBird <- substr(rasterFile, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+   #                 rasterFile <- paste(nameBird, "meanBoot-60.tif", sep = "")
+   #             
+   #                 ## if the item in rastersForBirdList is not already present at rastersPath, googledrive package downloads it
+   #                 if (!file.exists(file.path(downloadFolderBird, rasterFile))) {
+   #                   googledrive::drive_download(
+   #                     file = as_id(filesToDownload[filesToDownload$name %in% rasterFile,]$id),
+   #                      overwrite = TRUE,
+   #                     path = file.path(downloadFolderBird, nameBird)
+   # 
+   #                   )
+   #                 }
+   #                
+   #                 ## otherwise, if it is already present and downloaded, just get the name of the item
+   #                 return(terra::rast(file.path(downloadFolderBird, nameBird)))
+   #               }
+   #             )
+   # 
+   #           #get the species codes as names for the downloadedRasters object, rather than using the whole filepath
+   #           X <- lapply(sim$rastersForBirdList, substr, 1, 4) #works for strings of the form "XXXX-meanBoot.tif"
+   #           #X <- lapply(sim$rastersForBirdList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
+   #           names(sim$birdRasters) <- X
+   #          
+   #         sim$birdRasters <- lapply(X = sim$birdRasters, FUN = function(RasterLayer) {
+   #           ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
+   # 
+   #           proRaster <- reproducible::postProcess(RasterLayer,
+   #                                    #studyArea = sim$studyArea,
+   #                                    rasterToMatch = sim$rasterToMatch,
+   #                                    useTerra = TRUE,
+   #                                    fun = "terra::rast",
+   #                                    destinationPath = downloadFolderBird,
+   #                                    filename2 = paste(downloadFolderBird, "/", names(RasterLayer), ".tif", sep = ""),
+   #                                    overwrite = TRUE,
+   #                                    verbose = TRUE)
+   #           # clearPlot()
+   #           # Plot(proRaster, na.color= "grey")
+   #           return(proRaster)
+   #         })
 
  
   } else {
@@ -1188,11 +1269,14 @@ map2D <- function(sim) {
     sim$rasterToMatch <- reproducible::Cache(terra::crop, sim$rasterToMatch, sim$studyArea)
     sim$rasterToMatch <- reproducible::Cache(terra::mask, sim$rasterToMatch, sim$studyArea) 
     names(sim$rasterToMatch) <- "rasterToMatch"
-    
+   
     # get forest class raster
     if (!suppliedElsewhere("forClassRaster", sim)) {
+     
+   
       print("get forClassRaster from local Drive")
       sim$forClassRaster <- terra::rast(file.path(P(sim)$folderUrlForClass, P(sim)$nameForClassRaster))
+     
       sim$forClassRaster <- reproducible::Cache(reproducible::postProcess, sim$forClassRaster,
                                         #destinationPath = downloadFolderForestClass,
                                         #use the function raster
@@ -1205,10 +1289,9 @@ map2D <- function(sim) {
                                         useCache = getOption("reproducible.useCache", TRUE),
                                         #overwrite = TRUE,
                                         verbose = TRUE)
-      
       names(sim$forClassRaster) <- c("forClassRaster")
-      
       sim$forClassRaster[sim$forClassRaster == 0] <- NA
+     
     }
     
     #get land cover raster
@@ -1234,12 +1317,12 @@ map2D <- function(sim) {
       
       names(sim$landClassRaster) <- c("landClassRaster")
       print(sim$landClassRaster)
-      Plot(sim$landClassRaster, na.color = "blue")
+      #Plot(sim$landClassRaster, na.color = "blue")
       print(terra::unique(sim$landClassRaster))
       sim$landClassRaster <- terra::mask(sim$landClassRaster, sim$forClassRaster, inverse = TRUE)
       
       print(sim$landClassRaster)
-      Plot(sim$landClassRaster, na.color = "blue")
+      #Plot(sim$landClassRaster, na.color = "blue")
       print(terra::unique(sim$landClassRaster))
       
     }
