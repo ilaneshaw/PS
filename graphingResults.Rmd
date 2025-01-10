@@ -1121,7 +1121,7 @@ birdDatasets <- lapply(birdList, FUN= function(bird){
    #browser()
   birdDatasets <- as.data.frame(read_csv(paste(outputsDir, "/outputBirdPreds/", .studyAreaName, "_",  bird, "_fullDataset.csv", sep = "")))
   birdDatasets$landForClass <- as.factor(birdDatasets$landForClass)
-  birdDatasets$FoLRaster <- as.factor(birdDatasets$FoLRaster)
+  #birdDatasets$FoLRaster <- as.factor(birdDatasets$FoLRaster)
   birdDatasets$birdSp <- as.factor(birdDatasets$birdSp)
   birdDatasets$age <- as.integer(birdDatasets$age)
   birdDatasets$landForClass = factor(birdDatasets$landForClass, 
