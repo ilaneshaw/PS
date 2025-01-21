@@ -42,9 +42,9 @@ defineModule(sim, list(
                     "do smoothing by cover class only (1D)? if FALSE smoothing will be done by forest type and age class where possible"),
     defineParameter("nTrees", "numeric", 5000, NA, NA,
                     "number of trees for gbm to build"),
-    defineParameter("maxAgeClass", "numeric", 8, NA, NA,
+    defineParameter("maxAgeClass", "numeric", 17, NA, NA,
                     "what the oldest age class will be (everything older will be included in this class)"),
-    defineParameter("ageGrouping", "numeric", 20, NA, NA,
+    defineParameter("ageGrouping", "numeric", 10, NA, NA,
                     "how many years included per age class"),
     defineParameter("birdList", "character", NA, NA, NA,
                     "a list of bird species in the format of 4-letter bird codes"),
@@ -315,7 +315,6 @@ plotFun <- function(sim) {
     #PLOT 1D Predictions
     lapply(P(sim)$birdList, FUN= function(bird){
       
-      browser()
       birdPred <- eval(parse(text=paste("sim$birdPreds1D$", bird, sep = "")))
       birdPred$landForClass <- as.factor(birdPred$landForClass)
       birdPred$FoLRaster <- as.factor(birdPred$FoLRaster)
@@ -342,34 +341,50 @@ plotFun <- function(sim) {
       
     })
   
-    
+
     #PLOT 2D PREDICTIONS
-    # lapply(P(sim)$birdList, FUN= function(bird){
-    #   
-    #   #browser()
-    #   # birdPred <- eval(parse(text=paste("sim$birdPreds1D$", bird, sep = "")))
-    #   # birdPred$landForClass <- as.factor(birdPred$landForClass)
-    #   # birdPred$FoLRaster <- as.factor(birdPred$FoLRaster)
-    #   # birdPred$birdSp <- as.factor(birdPred$birdSp)
-    #   # 
-    #   # if (requireNamespace("ggplot2")) {
-    #   #   birdPred1DPlot <- birdPred |> ggplot2::ggplot(ggplot2::aes(x = landForClass,
-    #   #                                                              y = meanBirdDensity,
-    #   #                                                              fill = landForClass)) +
-    #   #     geom_bar(stat = "identity") +
-    #   #     geom_errorbar(aes(ymin = meanBirdDensity - seBirdDensity,
-    #   #                       ymax = meanBirdDensity + seBirdDensity),
-    #   #                   width = .5) +
-    #   #     theme_classic() +
-    #   #     ggtitle(paste("Mean density predictions by forest or land cover class for ", bird, sep = "")) +
-    #   #     xlab("Land or Forest Class") +
-    #   #     ylab("Mean Predicted Density (male birds per hectare)") 
-    #   #   clearPlot()
-    #   #   Plot(birdPred1DPlot, title = NULL) 
-    #   }
-    #   
-    # })
-    # 
+    lapply(P(sim)$birdList, FUN= function(bird){
+
+      matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
+      
+      #matrix <- matrix[2:ncol(matrix)]
+      #matrix <- data.matrix(matrix)
+      tab <- melt(matrix)
+      colnames(tab) <- c( "forClass","ageClass", "birdDensityPred")
+      #birdSp <- rep(paste(bird), nrow(tab))
+      #tab <- cbind(tab, birdSp = birdSp)
+      tab$ageClass <- as.factor(tab$ageClass)
+      tab$forClass <- as.factor(tab$forClass)
+      #tab$birdSp <- as.character(tab$birdSp)
+      tab$birdDensityPred <- as.numeric(tab$birdDensityPred)
+      
+      # birdPred$landForClass <- as.factor(birdPred$landForClass)
+      # birdPred$FoLRaster <- as.factor(birdPred$FoLRaster)
+      # birdPred$birdSp <- as.factor(birdPred$birdSp)
+      #
+      if (requireNamespace("ggplot2")) {
+          plot2DPredictions <- tab |> ggplot2::ggplot(ggplot2::aes(fill= forClass, 
+                                                                   y= birdDensityPred, 
+                                                                   x= ageClass)) +
+        geom_bar(position = "dodge", stat = "identity") +
+        facet_grid( ~ forClass,
+                    scales="free") +
+        theme_classic() +
+        ggtitle(paste("Predicted density by forest and age class for ", bird, sep= "")) +
+        xlab("Forest Age Class")  +
+        ylab("Predicted density (male birds per hectare)") +
+        theme(strip.background = element_rect(
+                color="white", fill="white", linewidth =1.1),
+              axis.text.x = element_text(angle = 45, hjust = 1))
+      
+        clearPlot()
+        Plot(plot2DPredictions, title = NULL)
+      }
+      
+    })
+
+
+
   
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -707,8 +722,8 @@ do2DPreds <- function(sim) {
     #print summary of relative influence by the factors
     #par(mar = c(5, 8, 1, 1))
     relInfGBM <- summary(gbmFitted)
-    relInfGBM <- title(main = bird)
-    # print(relInfGBM)
+    #relInfGBM <- title(main = bird)
+    relInfGBM
     # 
     #get Freidman's h-stat
     FriedmansHStat <- gbm::interact.gbm(gbmFitted,
@@ -857,177 +872,177 @@ do2DPreds <- function(sim) {
 }
 
 map2D <- function(sim) {
- #  # ! ----- EDIT BELOW ----- ! #
- #  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
- #  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
- #  # sim$event1Test2 <- 999 # for dummy unit test
- # 
- # 
- # 
- # 
- # #### GET 2D MAPS OF MATRIX PREDICTIONS
- #   print("GET 2D MAPS")
- # 
- #  print("make age class raster")
- #  #reclassify forAgeRaster into a raster of forest age classes
- #  ageReClassTab <- sim$birdPreds$ageClassDefs
- #  ageReClassTab <- ageReClassTab[ , ageClasses:=as.numeric(ageClasses)] #change data type of ageClassDefs
- #  str(ageReClassTab) #check
- #  ageClassRaster <- sim$ageRaster #make copy of forAgeRaster to be reclassified
- #  ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) #do the reclassification based on ageClassDefs
- #  names(ageClassRaster) <- "ageClassRaster"
- #  sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
- #  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
- #  print(sim$ageClassRaster)
- # 
- # 
- #    #get for2Dmaps
- #  print("get for2DMaps")
- #  sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
- # 
- #    print(bird)
- #    # check that spatial extent is the same for ageClassraster and forClassraster
- #    print("extent of forClassRaster same as ageClassRaster?")
- #    print(terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster))
- #    print("extent of forClassRaster same as the for1DMap Raster?")
- #    print(terra::ext(eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))) == terra::ext(sim$forClassRaster)) 
- #    print("same number of cells forClassRaster  as the for1DMap Raster?")
- #    print(length(terra::values(eval(parse(text=paste("sim$for1DMaps$", bird, sep = ""))))) == length(terra::values(sim$forClassRaster))) 
- # 
- # 
- #    #reform matrix to make reclassification tab
- #    matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
- #    map1D <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
- #    raster2DBins <-  map1D
- #    
- #    
- #    reclassTab2D <- reproducible::Cache(reshape2::melt,matrix)
- #    colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
- #    reclassTab2D <- as.data.table(reclassTab2D)
- #    reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
- #    reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
- #    #reclassTab2D <- rbind(reclassTab2D, c(NA, NA, NA))
- #    #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
- #    #make an empty NA raster the same as the for1DMap 
- #    # raster2DBins[] <- NA
- #    
- #    
- #    # # Combine categories and match with reclassification data
- #    # forClassValues <- terra::values(sim$forClassRaster)
- #    # ageClassValues <- terra::values(sim$ageClassRaster)
- #    # raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
- #    # colnames(raster2DBinsValues) <- c( "forClass","ageClass")
- #    # raster2DBinsValues$forClass <- as.factor(raster2DBinsValues$forClass)
- #    # raster2DBinsValues$ageClass <- as.factor(raster2DBinsValues$ageClass)
- #    # raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
- #    # raster2DBinsValues <- raster2DBinsValues$birdDensityPred
- #    # raster2DBinsValues <- raster2DBinsValues[!is.na(raster2DBinsValues)]
- #    # 
- #    # Create a function to map raster values to density values
- #    
- #    # Define the function to map raster values to density values
- #    map_density <- function(x, y, reclassTab2D) {
- #    
- #      # Handle NA values: If either x or y is NA, return NA
- #      if (is.na(x) || is.na(y)) {
- #        return(NA)
- #      }
- #     
- #      # Look up the density value based on x and y
- #      density_value <- reclassTab2D[forClass == x & ageClass == y, birdDensityPred]
- #      
- #      # Return density value if found, otherwise NA
- #      if (length(density_value) == 0) {
- #        print("warning! did not find density_value")
- #        return(NA)
- #      } else {
- #        return(density_value)
- #      }
- #    }
- #    
- #    # Define a function to apply to raster layers using app
- #    calc_density_raster <- function(x, y) {
- #      mapply(map_density, x, y, MoreArgs = list(reclassTab2D = reclassTab2D))
- #    }
- #    
- #    # Apply the function to the raster layers
- #    raster2DBins <- app(c(sim$forClassRaster, sim$ageClassRaster), fun = function(x) calc_density_raster(x[[1]], x[[2]]))
- #    
- #    names(raster2DBins) <- paste(bird)
- # 
- #    #check the new raster
- #    print(raster2DBins)
- #     # clearPlot()
- #     # Plot(raster2DBins, na.color = "blue", title = bird)
- # 
- #    # terra::writeRaster(x = raster2DBins,
- #    #                    filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DMap", sep = "")),
- #    #                    filetype= "GTiff",
- #    #                    gdal="COMPRESS=NONE",
- #    #                    overwrite = TRUE)
- # 
- #   
- # 
- #    return(raster2DBins)
- #  })
- # 
- #  names(sim$for2DMaps) <- P(sim)$birdList
- # 
- #  #as Rdata file
- # 
- #  # save(for2DMaps,
- #  #      file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
- #  # # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
- #  # sim$for2DMaps <- for2DMaps
- # 
- #  # get 2D map with Lc areas filled in with 1D predictions
- #  print("get for2DAndLc1DMaps")
- # 
- #  sim$for2DAndLc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
- # 
- #    print(bird)
- #    raster1DBins <- eval(parse(text=paste("sim$lc1DMaps$", bird, sep = "")))
- #    raster2DBins <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
- # 
- #    birdPredsRaster <- terra::cover(x = raster2DBins,
- #                             y = raster1DBins)
- # 
- #    names(birdPredsRaster) <- paste(bird)
- # 
- #    #birdPredsRaster #visually check Raster
- #    # clearPlot()
- #    # Plot(birdPredsRaster, na.color = "blue", title = paste(bird,  " 2D smoothing map", sep = ""))
- # 
- #    # writeRaster(x = birdPredsRaster, filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-birdPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
- # 
- #    print(paste(bird,"for 2D and lc 1D map raster complete"))
- #    return(birdPredsRaster)
- #  })
- # 
- #  names(sim$for2DAndLc1DMaps) <- birdList
- # 
- #  print("save for2DAndLc1DMaps")
- # 
- #  #as Rdata file
- # 
- #  # save(for2DAndLc1DMaps,
- #  #      file =  file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
- #  # #load(file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
- #  #
- #  #as tif files
- # 
- # 
- #  lapply(X = P(sim)$birdList, FUN = function(bird){
- #    raster <- eval(parse(text=paste("sim$for2DAndLc1DMaps$", bird, sep = "")))
- #    names(raster) <- paste(bird)
- #    terra::writeRaster(x = raster,
- #                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DAndLc1DMap", sep = "")),
- #                       filetype= "GTiff",
- #                       gdal="COMPRESS=NONE",
- #                       overwrite = TRUE)
- #  })
- # 
- # 
+  # ! ----- EDIT BELOW ----- ! #
+  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
+  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
+  # sim$event1Test2 <- 999 # for dummy unit test
+
+
+
+
+ #### GET 2D MAPS OF MATRIX PREDICTIONS
+   print("GET 2D MAPS")
+
+  print("make age class raster")
+  #reclassify forAgeRaster into a raster of forest age classes
+  ageReClassTab <- sim$birdPreds$ageClassDefs
+  ageReClassTab <- ageReClassTab[ , ageClasses:=as.numeric(ageClasses)] #change data type of ageClassDefs
+  str(ageReClassTab) #check
+  ageClassRaster <- sim$ageRaster #make copy of forAgeRaster to be reclassified
+  ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) #do the reclassification based on ageClassDefs
+  names(ageClassRaster) <- "ageClassRaster"
+  sim$ageClassRaster <- ageClassRaster#check over the raster that has been reclassified
+  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
+  print(sim$ageClassRaster)
+
+
+    #get for2Dmaps
+  print("get for2DMaps")
+  sim$for2DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+
+    print(bird)
+    # check that spatial extent is the same for ageClassraster and forClassraster
+    print("extent of forClassRaster same as ageClassRaster?")
+    print(terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster))
+    print("extent of forClassRaster same as the for1DMap Raster?")
+    print(terra::ext(eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))) == terra::ext(sim$forClassRaster))
+    print("same number of cells forClassRaster  as the for1DMap Raster?")
+    print(length(terra::values(eval(parse(text=paste("sim$for1DMaps$", bird, sep = ""))))) == length(terra::values(sim$forClassRaster)))
+
+
+    #reform matrix to make reclassification tab
+    matrix <- eval(parse(text=paste("sim$birdPreds$birdMatricies$", bird, sep = "")))
+    map1D <- eval(parse(text=paste("sim$for1DMaps$", bird, sep = "")))
+    raster2DBins <-  map1D
+
+
+    reclassTab2D <- reproducible::Cache(reshape2::melt,matrix)
+    colnames(reclassTab2D) <- c( "forClass","ageClass", "birdDensityPred")
+    reclassTab2D <- as.data.table(reclassTab2D)
+    reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
+    reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
+    #reclassTab2D <- rbind(reclassTab2D, c(NA, NA, NA))
+    #reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
+    #make an empty NA raster the same as the for1DMap
+    # raster2DBins[] <- NA
+
+
+    # # Combine categories and match with reclassification data
+    # forClassValues <- terra::values(sim$forClassRaster)
+    # ageClassValues <- terra::values(sim$ageClassRaster)
+    # raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
+    # colnames(raster2DBinsValues) <- c( "forClass","ageClass")
+    # raster2DBinsValues$forClass <- as.factor(raster2DBinsValues$forClass)
+    # raster2DBinsValues$ageClass <- as.factor(raster2DBinsValues$ageClass)
+    # raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
+    # raster2DBinsValues <- raster2DBinsValues$birdDensityPred
+    # raster2DBinsValues <- raster2DBinsValues[!is.na(raster2DBinsValues)]
+    #
+    # Create a function to map raster values to density values
+
+    # Define the function to map raster values to density values
+    map_density <- function(x, y, reclassTab2D) {
+
+      # Handle NA values: If either x or y is NA, return NA
+      if (is.na(x) || is.na(y)) {
+        return(NA)
+      }
+
+      # Look up the density value based on x and y
+      density_value <- reclassTab2D[forClass == x & ageClass == y, birdDensityPred]
+
+      # Return density value if found, otherwise NA
+      if (length(density_value) == 0) {
+        print("warning! did not find density_value")
+        return(NA)
+      } else {
+        return(density_value)
+      }
+    }
+
+    # Define a function to apply to raster layers using app
+    calc_density_raster <- function(x, y) {
+      mapply(map_density, x, y, MoreArgs = list(reclassTab2D = reclassTab2D))
+    }
+
+    # Apply the function to the raster layers
+    raster2DBins <- app(c(sim$forClassRaster, sim$ageClassRaster), fun = function(x) calc_density_raster(x[[1]], x[[2]]))
+
+    names(raster2DBins) <- paste(bird)
+
+    #check the new raster
+    print(raster2DBins)
+     # clearPlot()
+     # Plot(raster2DBins, na.color = "blue", title = bird)
+
+    # terra::writeRaster(x = raster2DBins,
+    #                    filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DMap", sep = "")),
+    #                    filetype= "GTiff",
+    #                    gdal="COMPRESS=NONE",
+    #                    overwrite = TRUE)
+
+
+
+    return(raster2DBins)
+  })
+
+  names(sim$for2DMaps) <- P(sim)$birdList
+
+  #as Rdata file
+
+  # save(for2DMaps,
+  #      file =  file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+  # # #load(file.path(outputFolderBirdPredsRasters, "for2DMaps.Rdata"))
+  # sim$for2DMaps <- for2DMaps
+
+  # get 2D map with Lc areas filled in with 1D predictions
+  print("get for2DAndLc1DMaps")
+
+  sim$for2DAndLc1DMaps <- lapply(X = P(sim)$birdList, FUN = function(bird){
+
+    print(bird)
+    raster1DBins <- eval(parse(text=paste("sim$lc1DMaps$", bird, sep = "")))
+    raster2DBins <- eval(parse(text=paste("sim$for2DMaps$", bird, sep = "")))
+
+    birdPredsRaster <- terra::cover(x = raster2DBins,
+                             y = raster1DBins)
+
+    names(birdPredsRaster) <- paste(bird)
+
+    #birdPredsRaster #visually check Raster
+    # clearPlot()
+    # Plot(birdPredsRaster, na.color = "blue", title = paste(bird,  " 2D smoothing map", sep = ""))
+
+    # writeRaster(x = birdPredsRaster, filename = file.path(outputFolderBirdPredsRasters, paste(bird, "-birdPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
+
+    print(paste(bird,"for 2D and lc 1D map raster complete"))
+    return(birdPredsRaster)
+  })
+
+  names(sim$for2DAndLc1DMaps) <- birdList
+
+  print("save for2DAndLc1DMaps")
+
+  #as Rdata file
+
+  # save(for2DAndLc1DMaps,
+  #      file =  file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
+  # #load(file.path(outputFolderBirdPredsRasters, "for2DAndLc1DMaps.Rdata"))
+  #
+  #as tif files
+
+
+  lapply(X = P(sim)$birdList, FUN = function(bird){
+    raster <- eval(parse(text=paste("sim$for2DAndLc1DMaps$", bird, sep = "")))
+    names(raster) <- paste(bird)
+    terra::writeRaster(x = raster,
+                       filename = file.path(outputFolderBirdPredsRasters, paste(P(sim)$.studyAreaName, "_", bird, "-for2DAndLc1DMap", sep = "")),
+                       filetype= "GTiff",
+                       gdal="COMPRESS=NONE",
+                       overwrite = TRUE)
+  })
+
+
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
@@ -1052,8 +1067,8 @@ map2D <- function(sim) {
   message(currentModule(sim), ": using dataPath '", dPath, "'.")
 
   # ! ----- EDIT BELOW ----- ! #
-  if (P(sim)$fromDrive == TRUE) {
-    
+  # if (P(sim)$fromDrive == TRUE) {
+  #   
    #  ### GET FILES FROM GOOGLE DRIVE ###
    #  #get RasterToMatch
    #  print("download rasterToMatch")
@@ -1236,7 +1251,7 @@ map2D <- function(sim) {
    #         })
 
  
-  } else {
+  #} else {
     
     ### GET FILES FROM LOCAL LOCATION ###
  
@@ -1394,7 +1409,7 @@ map2D <- function(sim) {
       
     }
     
-  }
+ # }
   
  
   

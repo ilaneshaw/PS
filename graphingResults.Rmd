@@ -36,26 +36,34 @@ library(cowplot)
  library(dplyr)
 library(tidyr)
 library(ggspatial)
-
+library(paletteer)
 #library(tidyverse)
 
 options(digits=3) #limit number of digits displayed
 
-birdList <- sort(c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO", "BOCH", 
-                   "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE",
-                   "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN",
-                   "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
+birdList <- sort(c("ALFL", "BBWA", "BCCH", "BOCH", "BRCR", "CMWA", "COYE", 
+                  "DEJU", "GCKI", "GRAJ",  "LEFL", "MOWA", "OVEN", "PAWA",
+                 "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
 dev.new()
+
+
+scale_colour_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
+scale_color_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
+scale_fill_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
+classPal <- paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
 # classPal <- c( "#56B4E9",  "#0072B2","black", "#F0E442", "#999999", "#CC79A7", "#E69F00","#D55E00",  "#009E73")
 # 
-classPal <- c(  "#88CCEE", "#6699CC", "#CC6677",    "#AA4499",   "#882255",   "#888888","#661100", "#DDCC77", "#999933", "#117733","#44AA99","#332288")
+# classPal <- c(  "#88CCEE", "#6699CC", "#CC6677",    "#AA4499",   "#882255",   "#888888","#661100", "#DDCC77", "#999933", "#117733","#44AA99","#332288")
 # scales::show_col(safe_colorblind_palette)
 # classPal <- viridis(12, option = "E")
 #classPal <- c("royalblue4", "royalblue3", "royalblue1", "aquamarine4",  "aquamarine3",  "aquamarine1", "darkgoldenrod4", "darkgoldenrod3", "darkgoldenrod1", "darkolivegreen","darkolivegreen4",  "darkolivegreen1")
-
+classPal <- c("#3C6987FF", "#87A5A5FF","#4B3C4BFF","#2D3C5AFF",
+              "#D2D2C3FF", "#A5A587FF", "#B4783CFF", "#D2A54BFF",
+              "#B4B45AFF", "#78963CFF","#1E4B3CFF","#5A695AFF")  
+             
 coloursLand <- classPal[1:6]
 coloursFor <- classPal[7:12]
-coloursAge <- "#888888"
+coloursAge <- "#A5A587FF"
 colours1D2D <- classPal[c(3,10)]
 colours2D <- classPal[10]
 colours2D_alt <- classPal[12]
@@ -396,8 +404,8 @@ landDatStats$landForClass = factor(landDatStats$landForClass,
 
 
  #assign age class column
- ageGrouping <- 20
- maxAgeClass <- 10
+ ageGrouping <- 10
+ maxAgeClass <- 17
  maxAge <- max(forClassDat_age$age) #get age of oldest cell 
  maxAgeClassAge <- maxAgeClass*ageGrouping 
  
@@ -419,7 +427,7 @@ landDatStats$landForClass = factor(landDatStats$landForClass,
  ageRefTab <- cbind(age, ageClass) #creates a lookup table of age to age class
  ageRefTab <- as.data.table(ageRefTab)
  ageRefTab$age <- as.integer(ageRefTab$age)
- ageRefTab$ageClass <- as.factor(ageRefTab$ageClass)
+ ageRefTab$ageClass <- as.integer(ageRefTab$ageClass)
  ageRefTab
  #allLandData$ageClass = allLandData$ageRaster #replicate age data in new column
  
@@ -446,9 +454,9 @@ forClassDat_age %>% pivot_longer(cols = "age")
    forClassStats_age[ , propArea := classCount/sum(classCount)]
    forClassStats_age
   #AB9 <- list( 9, 0, 0)
-  AB10 <- list(10, 0, 0)
-   forClassStats_age <- rbind(forClassStats_age, AB10)
-   forClassStats_age
+  # AB10 <- list(10, 0, 0)
+  #  forClassStats_age <- rbind(forClassStats_age, AB10)
+   #forClassStats_age
   #forClassStats_age <- rbind(forClassStats_age, )
   # 
  # landDatStats_AB <- allLandData_AB[order(FNFRaster, 
@@ -504,8 +512,12 @@ forClassDat_age %>% pivot_longer(cols = "age")
     xlab("Age (years)") +
     ylab("Proportion of forested area") +
     theme_classic()+
-   scale_x_discrete(labels=c("1" = "0-20","2" = "21-40","3" = "41-60","4"= "61-80","5"= "81-100","6"= "101-120","7"= "121-140", "8" = "141-160","9" = "161-180", "10" = "181+"),
-                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
+    scale_x_discrete(labels=c("1" = "0-10", "2" = "", "3" = "21-30", "4"= "",
+                              "5"= "41-50", "6"= "", "7"= "61-70", "8" = "",
+                              "9" = "81-90", "10" = "", "11" = "101-110", "12" = "",
+                              "13" = "121-130", "14"= "", "15"= "141-150", "16"= "",
+                              "17"= "161+" ), 
+                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17")) +
     scale_y_continuous(breaks= pretty_breaks()) +
     theme(title = element_text(size = 11),
         strip.text.x = element_text(size = 10),
@@ -520,7 +532,8 @@ forClassDat_age %>% pivot_longer(cols = "age")
         legend.text = element_blank(),
         plot.margin = margin(0,0,0.5,0.3, "cm"),
         legend.position="NULL")
-  ageDistribution
+  
+    ageDistribution
  
 # # examine 0 class
 #   class0 <- allLandData[landClassRaster == "0"]
@@ -841,8 +854,20 @@ birdPreds1D <- lapply(birdList, FUN= function(bird){
 })
 names(birdPreds1D) <- birdList
 
-sp.labs <- c("Alder Flycatcher", "American Goldfinch", "American Robin", "Barn Swallow", "Bay-breasted Warbler", "Black-capped Chickadee", "Brown-headed Cowbird", "Boreal Chickadee","Brewer's Blackbird", "Brown Creeper", "Clay-colored Sparrow", "Cedar Waxwing", "Chipping Sparrow", "Cliff Swallow", "Cape May Warbler", "Common Yellowthroat", "Dark-eyed Junco", "Golden-crowned Kinglet", "Gray Jay", "Hermit Thrush", "House Wren", "Least Flycatcher", "Mourning Warbler", "Ovenbird", "Palm Warbler", "Red-breasted Nuthatch", "Ruby-crowned Kinglet", "Red-eyed Vireo", "Swainson’s Thrush", "Tennessee Warbler", "Yellow-rumped Warbler" )
-names(sp.labs) <- c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO","BOCH", "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE", "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN", "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA") 
+sp.labs <- c("Alder Flycatcher", "Bay-breasted Warbler", "Black-capped Chickadee",
+             "Boreal Chickadee", "Brown Creeper", "Cape May Warbler", 
+             "Common Yellowthroat", "Dark-eyed Junco", "Golden-crowned Kinglet",
+             "Gray Jay", "Least Flycatcher", "Mourning Warbler", 
+             "Ovenbird", "Palm Warbler", "Red-breasted Nuthatch", 
+             "Ruby-crowned Kinglet", "Red-eyed Vireo", "Swainson’s Thrush",
+             "Tennessee Warbler", "Yellow-rumped Warbler" )
+names(sp.labs) <- c("ALFL", "BBWA", "BCCH", 
+                    "BOCH", "BRCR", "CMWA", 
+                    "COYE", "DEJU", "GCKI",
+                    "GRAJ",  "LEFL", "MOWA",
+                    "OVEN", "PAWA", "RBNU",
+                    "RCKI", "REVI", "SWTH", 
+                    "TEWA", "YRWA")
 
 birdPreds1DSingleFrame <- rbindlist(birdPreds1D[1:31])
 #birdPreds1DSingleFrame <- rbindlist(birdPreds1D[19:31])
@@ -996,7 +1021,7 @@ ggsave(file.path(saveLocation,"1DResults.jpeg"), plotMeanBirdDensity, width = 22
 
 ### make plots of 2D bird density predictions 
 
-```{r plotBirdMatriciesAB20, echo=FALSE}
+```{r plotBirdMatricies, echo=FALSE}
 
 
 #make plot of 2D bird density predictions
@@ -1010,18 +1035,20 @@ names(birdMatricies) <- birdList
 
 
 matrixAsTables <- lapply(X = birdList, FUN = function(bird){
- 
+ #browser()
   matrix <-  eval(parse(text=paste("birdMatricies$", bird, sep = "")))
   matrix <- matrix[2:ncol(matrix)]
   matrix <- data.matrix(matrix)
   tab <- melt(matrix)
   colnames(tab) <- c( "forClass","ageClass", "birdDensityPred")
   birdSp <- rep(paste(bird), nrow(tab))
-  tab <- cbind(tab, birdSp = birdSp)
-  tab$ageClass <- as.character(tab$ageClass)
+  maxDensity <- rep(max(tab$birdDensityPred), nrow(tab))
+  tab <- cbind(tab, birdSp = birdSp, maxDensity = maxDensity)
+  tab$ageClass <- as.integer(tab$ageClass)
   tab$forClass <- as.character(tab$forClass)
   tab$birdSp <- as.character(tab$birdSp)
   tab$birdDensityPred <- as.numeric(tab$birdDensityPred)
+  
   print(tab)
   
   return(tab)
@@ -1029,11 +1056,18 @@ matrixAsTables <- lapply(X = birdList, FUN = function(bird){
 
 names(matrixAsTables) <- birdList
 
+dataFrameForGraph <- rbindlist(matrixAsTables)
+dataFrameForGraph <- dataFrameForGraph[order(maxDensity)]
+birdSpInOrder <- unique(dataFrameForGraph$birdSp)
+
 #make dataframe of birds you want to include
-dataFrameForGraph <- rbindlist(matrixAsTables[1:16])
-#dataFrameForGraph <- rbindlist(matrixAsTables[17:31])
+#birdsWanted <- c(birdSpInOrder[1:10])
+birdsWanted <- birdSpInOrder[11:20]
+dataFrameForGraph <- dataFrameForGraph[dataFrameForGraph[["birdSp"]] %in% birdsWanted]
 
 #specify class level order
+dataFrameForGraph$birdSp = factor(dataFrameForGraph$birdSp, 
+                                             levels = birdsWanted)
 dataFrameForGraph$forClass = factor(dataFrameForGraph$forClass, 
                                              levels = c("3",
                                                         "4",
@@ -1043,12 +1077,23 @@ dataFrameForGraph$forClass = factor(dataFrameForGraph$forClass,
                                                         "2"))
 
 #define facet labels for birds
-sp.labs <- c("Alder \nFlycatcher", "American \nGoldfinch", "American\n Robin", "Barn Swallow", "Bay-\nbreasted\n Warbler", "Black-\ncapped\n Chickadee", "Brown-\nheaded\n Cowbird", "Boreal \nChickadee","Brewer's \nBlackbird", "Brown \nCreeper", "Clay-colored\n Sparrow", "Cedar \nWaxwing", "Chipping\n Sparrow", "Cliff\n Swallow", "Cape May\n Warbler", "Common \nYellowthroat", "Dark-eyed\n Junco", "Golden-\ncrowned\n Kinglet", "Gray Jay", "Hermit \nThrush", "House\n Wren", "Least \nFlycatcher", "Mourning\n Warbler", "Ovenbird", "Palm \nWarbler", "Red-\nbreasted\n Nuthatch", "Ruby-\ncrowned\n Kinglet", "Red-eyed\n Vireo", "Swainson’s\n Thrush", "Tennessee\n Warbler", "Yellow-\nrumped\n Warbler" )
-names(sp.labs) <- c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO","BOCH", "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE", "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN", "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA") 
-
+sp.labs <- c("Alder \nFlycatcher", "Bay-breasted\n Warbler", "Black-capped\n Chickadee",
+             "Boreal \nChickadee", "Brown \nCreeper", "Cape May\n Warbler", 
+             "Common \nYellowthroat", "Dark-eyed\n Junco", "Golden-crowned\n Kinglet",
+             "Gray\n Jay", "Least \nFlycatcher", "Mourning\n Warbler", 
+             "Ovenbird", "Palm \nWarbler", "Red-breasted\n Nuthatch", 
+             "Ruby-crowned\n Kinglet", "Red-eyed\n Vireo", "Swainson’s\n Thrush",
+             "Tennessee\n Warbler", "Yellow-rumped\n Warbler" )
+names(sp.labs) <- c("ALFL", "BBWA", "BCCH", 
+                    "BOCH", "BRCR", "CMWA", 
+                    "COYE", "DEJU", "GCKI",
+                    "GRAJ",  "LEFL", "MOWA",
+                    "OVEN", "PAWA", "RBNU",
+                    "RCKI", "REVI", "SWTH", 
+                    "TEWA", "YRWA")
 
 # New facet label names for forest classes
-class.labs <- c("Black Spruce", "Black Spruce Wet", "Deciduous", "Mixed", "Pine", "White Spruce")
+class.labs <- c("Black \nSpruce", "Black \nSpruce Wet", "Deciduous", "Mixed", "Pine", "White \nSpruce")
 names(class.labs) <- c("1", "2", "3", "4", "5", "6")
 
 
@@ -1057,18 +1102,29 @@ plotMeanBirdDensity2D <- ggplot(data = dataFrameForGraph,
                                 aes(fill= forClass, y= birdDensityPred, x= ageClass)) +
   geom_bar(position = "dodge", stat = "identity") +
   facet_grid( birdSp ~ forClass,
-              labeller = labeller(forClass = class.labs, birdSp = sp.labs),
-              scales="free") +
-  theme_classic() +
+              labeller = labeller(forClass = class.labs, birdSp = sp.labs))+
+              #scales="free") +
+  theme_minimal() +
   scale_fill_manual(values = coloursFor) +
   #scale_fill_viridis(option = "E",discrete = TRUE) +
-  ggtitle("Predicted density by forest and age class") +
+  #ggtitle("a") +
   xlab("Forest Age (years)")  +
-  scale_x_discrete(labels=c("1" = "0-20","2" = "","3" = "41-60","4"= "","5"= "81-100","6"= "","7"= "", "8" = "141-160","9" = "", "10" = "181+"),
-                   limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10")) +
+   scale_x_discrete(labels=c("1" = "0-10",
+                              "5"= "41-50", 
+                              "9" = "81-90", 
+                              "13" = "121-130", 
+                              "17"= "161+" ), 
+                   limits=c("1", "2", "3", "4",
+                            "5", "6", "7", "8", 
+                            "9", "10", "11", "12", 
+                            "13", "14", "15", "16", "17"),
+                   breaks = c("1", "5", "9", "13", "17")) +
   ylab("Predicted density (male birds per hectare)") +
-  scale_y_continuous(breaks= pretty_breaks(n = 4)) +
-  theme(title = element_blank(),
+  scale_y_continuous(breaks= pretty_breaks(n = 4)) +#, limits=c(0, 1)) +
+  #coord_trans(y="log2")+
+  #scale_y_log10() +
+  theme(title = element_blank(
+         ),
         strip.text.x = element_text(
           size = 10),
         strip.text.y = element_text(
@@ -1104,6 +1160,47 @@ ggsave(file.path(saveLocation,"2DResults.jpeg"), plotMeanBirdDensity2D, width = 
 plotMeanBirdDensity2D
 ```
 
+### make nice tables of 2D bird density predictions 
+
+```{r plotBirdMatriciesTables, echo=FALSE}
+
+
+#make 2D bird density predictions table
+
+#get matricies
+birdMatricies <- lapply(birdList, FUN= function(bird){
+  birdMatrix <- as.data.frame(read_csv(paste(outputsDir, "/outputBirdPreds/", .studyAreaName, "_", bird, "_matrix.csv", sep = "")))
+  return(birdMatrix)
+})
+names(birdMatricies) <- birdList
+
+
+matrixAsTables <- lapply(X = birdList, FUN = function(bird){
+ 
+  matrix <-  eval(parse(text=paste("birdMatricies$", bird, sep = "")))
+  matrix <- matrix[2:ncol(matrix)]
+  matrix <- data.matrix(matrix)
+  tab <- melt(matrix)
+  colnames(tab) <- c( "forClass","ageClass", "birdDensityPred")
+  birdSp <- rep(paste(bird), nrow(tab))
+  tab <- cbind(tab, birdSp = birdSp)
+  tab$ageClass <- as.character(tab$ageClass)
+  tab$forClass <- as.character(tab$forClass)
+  tab$birdSp <- as.character(tab$birdSp)
+  tab$birdDensityPred <- as.numeric(tab$birdDensityPred)
+  print(tab)
+  
+  return(tab)
+})
+
+names(matrixAsTables) <- birdList
+
+
+# The gt package in R is a powerful tool for creating elegant and customizable tables for data visualization and reporting. It offers a user-friendly way to design and style tables in RMarkdown documents and Shiny applications.
+
+#We’re pleased to announce the release of styler 1.0.0. styler is a source code formatter - a package to format R code according to a style guide. It defaults to our implementation of the tidyverse style guide, but there is plenty of flexibility for a user to specify their own style. A coherent style is important for consistency and legibility. Just as it is important to putspcesbetweenwords
+
+```
 
 ## DENSITY PLOTS
 
@@ -1727,8 +1824,9 @@ assumptionsByClass$smoothingType <- as.factor(assumptionsByClass$smoothingType)
  #normality plot
    plotUnimodality <- ggplot(data = assumptionsByClass, 
                                 aes(fill = smoothingType, y= propBirdsUnimodal, x= smoothingType)) + 
-    geom_boxplot() +
-    geom_jitter(color="black", size=0.4, alpha=0.9) +
+    geom_violin(width=1.4) +
+     geom_boxplot(width=0.15, color="grey") +
+    geom_jitter(color="grey", size=0.4, alpha=0.9) +
     ggtitle("Proportion of bird species per class \nwith a unimodal distribution (p < 0.05)") +
     xlab("Species")  +
     ylab("Proportion of bird \nspecies unimodal") +
@@ -1768,7 +1866,8 @@ plotSpearmanStats <- ggplot(data = spearmanStats,
                                 aes(y= spearmanStat, 
                                 x= smoothingType,
                                 fill = smoothingType)) + 
-    geom_boxplot() +
+    geom_violin(width=1.4) +
+  geom_boxplot(width=0.15, color="grey") +
     ggtitle("Correlation between BAM national models \nand mapped predictions, across bird species") +
     #xlab()  +
     scale_x_discrete(labels=c("spearman1D" = "1D", "spearman2D" = "2D")) +  
@@ -1813,7 +1912,8 @@ plotAutocorStats <- ggplot(data = moranStats,
                                              levels=c("moran1D", "moran2D")), 
                                 y= MoransI, 
                                 x= smoothingType)) + 
-    geom_boxplot() +
+    geom_violin(width=1.4) +
+  geom_boxplot(width=0.15, color="grey") +
     ggtitle("Spatial autocorrelation of mapped residuals, \nacross bird species") +
     #xlab()  +
     ylab("Moran's I") +
