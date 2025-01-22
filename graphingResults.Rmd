@@ -37,6 +37,7 @@ library(cowplot)
 library(tidyr)
 library(ggspatial)
 library(paletteer)
+library(tidyterra)
 #library(tidyverse)
 
 options(digits=3) #limit number of digits displayed
@@ -47,7 +48,7 @@ birdList <- sort(c("ALFL", "BBWA", "BCCH", "BOCH", "BRCR", "CMWA", "COYE",
 dev.new()
 
 
-scale_colour_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
+coloursScale <- scale_colour_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
 scale_color_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
 scale_fill_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
 classPal <- paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")
@@ -2227,7 +2228,11 @@ mapRas <- terra::rast(paste(outputsDir, "/outputBirdPredsRasters/", .studyAreaNa
 resRas <- terra::rast(paste(outputsDir, "/outputBirdPredsRasters/", bird, "-for2DAndLc1DRes", sep = ""))
 
 allRasters <- c(nmRas, mapRas, resRas)
-names(allRasters) <- c("BAM National Model", "Smoothing Prediction", "Residual")
+names(allRasters) <- c("BAM Model Raster", "2D Smoothing Prediction\n (10 year age classes)", "Residual")
+
+studyArea <- terra::project(studyArea, y = "+proj=longlat +datum=WGS84")
+allRasters <- terra::project(allRasters, y = "+proj=longlat +datum=WGS84")
+allRasters <- crop(allRasters, studyArea)
 # Convert rasters to data frames
 # nmRas_df <- as.data.frame(nmRas, xy = TRUE, cells = TRUE) %>%
 #   rename(value = "OVEN-meanBoot_60") %>%
@@ -2246,48 +2251,66 @@ names(allRasters) <- c("BAM National Model", "Smoothing Prediction", "Residual")
 
 rasterPlot <- ggplot() +
   geom_spatraster(data = allRasters) +
+  #coord_sf(crs = 4326) +
   facet_wrap(~lyr, ncol = 3) +
-   scale_fill_viridis(option = "E", na.value="white")+
-  theme_minimal()+
-  labs(title = "Ovenbird density predictions (males/ha)")+
+  #scale_colour_paletteer_d("impressionist.colors::la_recolte_des_foins_eragny")+ 
+  #scale_fill_viridis(option = "B", na.value="white")+
+  scale_fill_gradient2(low = "violetred4", 
+                       mid = "white",
+                       high = "darkolivegreen", 
+                       midpoint = 0,
+                       na.value = "white")+
+  theme_classic()+
+  labs(title = " Ovenbird density predictions (males/ha)")+
    theme(title = element_text(size = 14),
         strip.text.x = element_text(
-          size = 14),
+          size = 12),
         strip.text.y = element_text(
           size = 11),
         legend.position="right",
+        legend.text = element_text(size = 10),
         legend.title = element_blank(),
         legend.key.height = unit(1, "null"),
         strip.background = element_rect(
-          color="white", fill="white", linewidth =1.1),
+          color="white", fill="white", linewidth =0.1),
         axis.line = element_blank(),
         axis.ticks = element_blank(),
         axis.text.y = element_blank(),
         axis.text.x = element_blank(),
         axis.title.y = element_blank(),
-        axis.title.x = element_text(size = 11),
-        plot.margin = margin(0.5,0.5,0.5,0.5, "cm"))
+        axis.title.x = element_text(size = 11))
 
 rasterPlot
 
-#ageRaster
-min_ = min(min(terra::unique(nmRas)), min(terra::unique(mapRas)), min(terra::unique(resRas)))
-max_ = max(max(terra::unique(nmRas)), max(terra::unique(mapRas)), max(terra::unique(resRas)))
-r.range = c(min_, max_)
+ggsave(file.path(saveLocation,"rasterPlots.jpeg"), rasterPlot, width = 22, height = 12, units = "cm")
+
+# #ageRaster
+# min_ = min(min(terra::unique(nmRas)), min(terra::unique(mapRas)), min(terra::unique(resRas)))
+# max_ = max(max(terra::unique(nmRas)), max(terra::unique(mapRas)), max(terra::unique(resRas)))
+# r.range = c(min_, max_)
 
 # layout(matrix(c(1,2,3), 2, 3, byrow = TRUE),
 #    widths=c(1,1,1.1), heights=c(1,3) )
 
 
 
-plot(allRasters, main = c('National Model', "Mapped Predictions", "residuals"), colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box=FALSE, cex.main = 1.5)), plg=list( cex = 1.25  ))
-legend(x = "bottom",inset = 1)
-,
-        legend = c("Fabricated Metal", "Iron and Steel", "Paper","Beverages", "Tobacco"), 
-        col=plot_colors, lwd=5, cex=.5, horiz = TRUE)
-# plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)plot(mapRas, mTRUEain = 'Mapped Predictions', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)
-# plot(resRas, main = 'Residuals', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, cex.main = 1.5, plg=list( cex = 1.25 # Legend text size
-#             ))
+# plot(allRasters, 
+#      main = c('National Model', "Mapped Predictions", "residuals"), 
+#      colNA="white", 
+#      range = r.range, 
+#      #col = coloursViridis, 
+#      axes=FALSE, 
+#      box=FALSE, 
+#      cex.main = 1.5)
+# # #,
+# # plg=list( cex = 1.25  ))
+# # legend(x = "bottom",inset = 1)
+# # ,
+# #         legend = c("Fabricated Metal", "Iron and Steel", "Paper","Beverages", "Tobacco"), 
+# #         col=plot_colors, lwd=5, cex=.5, horiz = TRUE)
+# # plot(mapRas, main = 'Mapped Predictions', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)plot(mapRas, mTRUEain = 'Mapped Predictions', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, legend = FALSE, cex.main = 1.5)
+# # plot(resRas, main = 'Residuals', colNA="white", range = r.range, col = coloursViridis, axes=FALSE, box = FALSE, cex.main = 1.5, plg=list( cex = 1.25 # Legend text size
+# #             ))
 
 
 
