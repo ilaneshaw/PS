@@ -66,14 +66,14 @@ classPal <- c("#3C6987FF", "#87A5A5FF","#4B3C4BFF","#2D3C5AFF",
              
 coloursLand <- classPal[1:6]
 coloursFor <- classPal[7:12]
-coloursAge <- "#A5A587FF"
+coloursAge <- "#78963CFF"
 colours1D2D <- classPal[c(1,10)]
 colours2D <- classPal[10]
 colours2D_alt <- classPal[12]
 coloursAllSame <- c("#A5A587FF", "#A5A587FF", "#A5A587FF",
                     "#A5A587FF", "#A5A587FF", "#A5A587FF")
-coloursAllSame2 <- c("#3C6987FF", "#3C6987FF", "#3C6987FF",
-                    "#3C6987FF", "#3C6987FF", "#3C6987FF")
+coloursAllSame2 <- c("#78963CFF", "#78963CFF", "#78963CFF",
+                    "#78963CFF", "#78963CFF", "#78963CFF")
  
 
 #                              "landClass_1" = "Water/Ice", - blue 
@@ -97,7 +97,7 @@ inputsDir <- checkPath("../../inputs", create = TRUE)
 saveLocation <- checkPath(file.path(outputsDir, "PSFigs"), create= TRUE)
 rasterToMatchLocation <- file.path(inputsDir, "LCC2005_V1_4a.tif")
 ### STUDY AREA ONE DETAILS
-studyAreaLocation <- checkPath(file.path(inputsDir, "studyArea/studyArea_AB_BCR6/studyArea_AB_BCR6.shp"))
+studyAreaLocation <- checkPath(file.path(inputsDir, "studyArea/CH1PiecewiseSmoothing/studyArea_AB_BCR6/studyArea_AB_BCR6.shp"))
 forClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/vegTypesRas_AB_BCR6_2011"), create = TRUE)
 ageRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/ageRas_AB_BCR6_2011"), create = TRUE)
 landClassRasterLocation <- checkPath(file.path(inputsDir, "forestClassRasters/landCoverRas_AB_BCR6_2010"), create = TRUE)
@@ -835,8 +835,13 @@ ggsave(file.path(saveLocation,"landscapeSummary.jpeg"), landscapeSummary, width 
   names(landscapeRaster) <- c("landscapeRaster")
 
 
+
  plot(landscapeRaster, main = "Landscape raster", legend = TRUE, colNA = "white", axes = FALSE, box = FALSE)
 
+studyArea <- terra::project(studyArea, y = "+proj=longlat +datum=WGS84")
+forClassRaster <- terra::project(forClassRaster, y = "+proj=longlat +datum=WGS84")
+forClassRaster <- crop(forClassRaster, studyArea)
+ 
 cbPalette2 <-  c( "#56B4E9",  "#0072B2","#009E73", "#E69F00", "#999999","black")
 plot(forClassRaster, main = 'Forest Class Raster', legend = TRUE, col = cbPalette2, colNA="white", axes=FALSE, box=FALSE)
 # legend("bottomright", legend = c( "Black Spruce", "Black Spruce Wet", "Conifer Mix", "Deciduous", "Mixed", "Pine", "White Spruce"), fill = cbPalette)
@@ -844,6 +849,10 @@ plot(forClassRaster, main = 'Forest Class Raster', legend = TRUE, col = cbPalett
 #landClassRaster
 #plot(landClassRaster,colNA="grey70")
 # customizing the legend
+
+landClassRaster <- terra::project(landClassRaster, y = "+proj=longlat +datum=WGS84")
+landClassRaster <- crop(landClassRaster, studyArea)
+
 plot(landClassRaster, main = 'Land-Cover Class Raster', legend = TRUE, col = cbPalette2, colNA="white", axes=FALSE, box=FALSE)
 #nf.legend <- legend("right", legend = c("0" = "Unmanaged Forest", "1" = "Water/Ice", "2" = "Wetland", "3" = "Anthro/Exposed Land", "4" = "Grass/Cropland", "5" = "Shrub", "6" = "Bryoid"), fill = cbPalette)
 
@@ -854,7 +863,15 @@ plot(landClassRaster, main = 'Land-Cover Class Raster', legend = TRUE, col = cbP
 # max_ = max(max(terra::unique(AB_ageRaster)), max(terra::unique(BC_ageRaster)))
 # r.range = c(min_, max_)
 
-plot(ageRaster, main = 'Age Raster', colNA="white", axes=FALSE, box = FALSE)  
+
+
+ageRaster <- terra::project(ageRaster, y = "+proj=longlat +datum=WGS84")
+ageRaster <- crop(ageRaster, studyArea)
+
+plot(ageRaster, main = 'Age Raster', colNA="white", axes=FALSE, box = FALSE) 
+
+
+
   
 
 ```
@@ -948,7 +965,7 @@ gtsave(classInfoTab, "classInfoTab.png", path = saveLocation, expand = 2000)
 
 
 ```{r meanDensity1D, echo=FALSE}
-
+#birdList <- sort(c("OVEN", "TEWA", "LEFL"))
 #make plot of 1D mean density by cover class
 birdPreds1D <- lapply(birdList, FUN= function(bird){
 
@@ -1062,9 +1079,9 @@ plotMeanBirdDensity <- ggplot(data = birdPreds1DSingleFrame,
   #                            ))+
   theme(title = element_blank(),
         strip.text.x = element_text(
-          size = 10),
+          size = 15),
         strip.text.y = element_text(
-          size = 10),
+          size = 15),
         #legend.key.width = unit(0.5, units = "cm"),
         legend.key.size = unit(0.3, units = "cm"),
         legend.title = element_blank(),
@@ -1073,16 +1090,16 @@ plotMeanBirdDensity <- ggplot(data = birdPreds1DSingleFrame,
         legend.text = element_text(size = 10),
         strip.background = element_rect(
           color="white", fill="white", linewidth =0.001),
-        axis.text.y = element_text(size = 10),
+        axis.text.y = element_text(size = 15),
         axis.text.x = element_blank(),
-        axis.title.y = element_text(size = 12),
-        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 18),
+        axis.title.x = element_text(size = 18),
         plot.margin = margin(0.3,0.2,0.2,0.2, "cm"))
 
 
 plotMeanBirdDensity
 
-ggsave(file.path(saveLocation,"1DResults.jpeg"), plotMeanBirdDensity, width = 22, height = 30, units = "cm")
+ggsave(file.path(saveLocation,"1DResults.jpeg"), plotMeanBirdDensity, width = 26, height = 20, units = "cm")
 #jpeg(paste(plotsLocation, "plotMeanBirdDensity1D.jpg", sep = ""))
 
 ```
@@ -2780,7 +2797,7 @@ assumptionsByClass$smoothingType <- as.factor(assumptionsByClass$smoothingType)
                                "2_10" = "2D (10 year\n age classes)", 
                                "2_20" = "2D (20 year\n age classes)",
                                "2_40" = "2D (40 year\n age classes)")) +  
-    scale_fill_manual(values=coloursAllSame) +
+    scale_fill_manual(values=coloursAllSame2) +
   theme(title = element_text(size = 12),
           legend.title = element_blank(),
           legend.position= "none",
@@ -2817,7 +2834,7 @@ assumptionsByClass$smoothingType <- as.factor(assumptionsByClass$smoothingType)
                                "2_10" = "2D (10 year\n age classes)", 
                                "2_20" = "2D (20 year\n age classes)",
                                "2_40" = "2D (40 year\n age classes)")) +  
-    scale_fill_manual(values=coloursAllSame) +
+    scale_fill_manual(values=coloursAllSame2) +
   theme(title = element_text(size = 12),
           legend.title = element_blank(),
           legend.position= "none",
@@ -2871,7 +2888,7 @@ plotSpearmanStats <- ggplot(data = spearmanStats,
                                ylab("Spearman's \ncoefficient (p)") +
     scale_y_continuous(breaks= pretty_breaks()) +
     theme_classic() + 
-    scale_fill_manual(values= coloursAllSame, 
+    scale_fill_manual(values= coloursAllSame2, 
                       labels = c( "1D Piecewise\n Smoothing", "2D Piecewise\n Smoothing")) +
     theme(title = element_text(size = 12),
           legend.title = element_blank(),
@@ -2940,7 +2957,7 @@ plotAutocorStats <- ggplot(data = moranStats,
                               "moran2D_20" = "2D (20 year\n age classes)",
                               "moran2D_40" = "2D (40 year\n age classes)")) +       
   theme_classic() + 
-    scale_fill_manual(values= coloursAllSame, 
+    scale_fill_manual(values= coloursAllSame2, 
                       labels = c( "moran1D", "moran2D")) +
     theme(title = element_text(size = 12),
           legend.title = element_blank(),
@@ -2985,16 +3002,58 @@ plotAutocorStats <- ggplot(data = moranStats,
 
    ggsave(file.path(saveLocation,"unimodSpearmanAutocor.jpeg"), allMatrixPlot, width = 10, height = 18, units = "cm")
  
+   
+   ############################################################################
+   
+   
+    plotUniNorm <- ggarrange(plotUnimodality +
+                             theme(axis.text.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotNormality +
+                             theme(title = element_blank())
+                           ,
+                           ncol = 1,
+                           labels = c("(a)", "(b)"),
+                           label.args = list(gp=gpar(font=4, fontsize = 12), x=unit(1,"line"), hjust=1)
+                            ) 
+
+   ggsave(file.path(saveLocation,"plotUniNorm.jpeg"), plotUniNorm, width = 10, height = 12, units = "cm")
+   
+   
+   #########################################################################################
+   
+   
+      
+     plotSpearAuto <- ggarrange(plotSpearmanStats +
+                             theme(axis.text.x = element_blank(),
+                                   axis.title.x = element_blank(),
+                                   title = element_blank(),
+                                   legend.position= "none")
+                           ,
+                           plotAutocorStats +
+                             theme(title = element_blank())
+                           ,
+                           ncol = 1,
+                           labels = c("(a)", "(b)"),
+                           label.args = list(gp=gpar(font=4, fontsize = 12), x=unit(1,"line"), hjust=1)
+                            ) 
+
+   ggsave(file.path(saveLocation,"plotSpearAuto.jpeg"), plotSpearAuto, width = 10, height = 12, units = "cm")
 
 ```
 
-### table of test stats
+
+
+
+### tables of test stats
 
 ```{r tabCombinedUnimodSpearAndMoranAgeClass, echo=FALSE}
 
 
-##################################################################
-   
+
 #    spearmanStats
    spearmanStats_10 <- as.data.frame(read_csv(paste(outputsDir, "/outputBirdPreds/spearmanStats.csv", sep = "")))
 names(spearmanStats_10) <- c("birdSp", "spearman1D", "spearman2D_10")
@@ -3005,15 +3064,19 @@ names(spearmanStats_20) <- c("birdSp", "spearman1D", "spearman2D_20")
 spearmanStats_40 <- as.data.frame(read_csv(paste(outputsDir, "/9x20yrAgeClasses/outputBirdPreds/spearmanStats.csv", sep = "")))
 names(spearmanStats_40) <- c("birdSp", "spearman1D", "spearman2D_40")
 
-spearmanStats <- cbind(spearmanStats_10,
+spearmanStats <- cbind(spNames$spName, spearmanStats_10,
                        spearmanStats_20$spearman2D_20, 
                        spearmanStats_40$spearman2D_40)
-names(spearmanStats) <- c("Bird Species", "1D", "2D (10 year age classes)", "2D (20 year age classes)", "2D (40 year age classes)")
 
-gtTab <- gt::gt(spearmanStats) |> #tab_options(table.border.right.width = 50) |> 
-  tab_header(title = "Spearman's Rank Correlation Test Statistic") |>
+spearmanStats$birdSp <- NULL
+
+names(spearmanStats) <- c("Bird Species", "1D  ", "2D (10 year age classes)", "2D (20 year age classes)", "2D (40 year age classes)")
+
+tabSpearman <- gt::gt(spearmanStats) |> #tab_options(table.border.right.width = 50) |> 
+  tab_header(title = "Spearman's Rank Correlation Test Statistic (ρ)") |>
    tab_stubhead(label = "Bird Species")
-  
+
+gtsave(tabSpearman, "spearmanStatsTab.png", path = saveLocation, expand = 50)
 
    
 # resStats
@@ -3026,27 +3089,31 @@ names(resStats_20) <- c("birdSp", "medianRes1D", "medianRes2D_20","moran1D", "mo
      resStats_40 <- as.data.frame(read_csv(paste(outputsDir, "/9x20yrAgeClasses/outputBirdPreds/resStats.csv", sep = "")))
 names(resStats_40) <- c("birdSp", "medianRes1D", "medianRes2D_40","moran1D", "moran2D_40")
 
-resStats <- as.data.frame(cbind(resStats_10$birdSp, 
+moranStats <- as.data.frame(cbind(spNames$spName, 
+                  resStats_10$birdSp, 
                   resStats_10$moran1D, 
                   resStats_10$moran2D_10, 
                   resStats_20$moran2D_20, 
                   resStats_40$moran2D_40))
-names(resStats) <- c("birdSp","moran1D", "moran2D_10", "moran2D_20", "moran2D_40")
-resStats$birdSp <- as.factor(resStats$birdSp)
-resStats$moran1D <- as.numeric(resStats$moran1D)
-resStats$moran2D_10 <- as.numeric(resStats$moran2D_10)
-resStats$moran2D_20 <- as.numeric(resStats$moran2D_20)
-resStats$moran2D_40 <- as.numeric(resStats$moran2D_40)
+names(moranStats) <- c("birdSp", "spCode", "moran1D", "moran2D_10", "moran2D_20", "moran2D_40")
+moranStats$birdSp <- as.factor(moranStats$birdSp)
+moranStats$spCode <- as.factor(moranStats$spCode)
+moranStats$moran1D <- as.numeric(moranStats$moran1D)
+moranStats$moran2D_10 <- as.numeric(moranStats$moran2D_10)
+moranStats$moran2D_20 <- as.numeric(moranStats$moran2D_20)
+moranStats$moran2D_40 <- as.numeric(moranStats$moran2D_40)
 
+moranStats$spCode <- NULL
+names(moranStats) <- c("Bird Species", "1D  ", "2D (10 year age classes)", "2D (20 year age classes)", "2D (40 year age classes)")
 
 ## moran stats plot 
+tabMoran <- gt::gt(moranStats) |> #tab_options(table.border.right.width = 50) |> 
+  tab_header(title = "Moran's I") |>
+   tab_stubhead(label = "Bird Species")
 
-moranStats <- resStats %>%
-  pivot_longer(
-    cols = c(moran1D, moran2D_10, moran2D_20, moran2D_40),        # Columns to pivot
-    names_to = "smoothingType",        # New column for the names of the columns
-    values_to = "MoransI"        # New column for the values
-  )
+gtsave(tabMoran, "moranStatsTab.png", path = saveLocation, expand = 50)
+
+   
 
 
 ```
@@ -3120,7 +3187,7 @@ ggsave(file.path(paste(saveLocation, "/", bird, "_rasterPlots.jpeg", sep = "")),
   
 })
 
-
+nmRas <- terra::rast(paste(inputsDir, "/birdRasterFiles/OVEN-meanBoot_BCR-60_studyArea_AB_BCR6", sep = ""))
 
 ```
 
