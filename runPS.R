@@ -4,48 +4,50 @@ library("SpaDES.core")
 options(spades.useRequire = FALSE)
 
 ## make a list of directory paths
-inputsDir <- checkPath("../../inputs", create = TRUE)
-outputsDir <- checkPath("../../outputs", create = TRUE)
-downloadFolderArea <- checkPath(file.path(inputsDir, "studyArea/CH1PiecewiseSmoothing/studyArea_AB_BCR6"), create = TRUE)
-downloadFolderForestClass <- checkPath(file.path(inputsDir, "forestClassRasters"), create = TRUE)
-downloadFolderBird <- checkPath(file.path(inputsDir, "birdRasterFiles"), create = TRUE)
-outputFolderBirdPreds <- checkPath(file.path(outputsDir, "outputBirdPreds"), create = TRUE)
-outputFolderBirdPredsRasters <- checkPath(file.path(outputsDir, "outputBirdPredsRasters"), create = TRUE)
 setPaths(
   modulePath = file.path("../../modules"),
   cachePath = file.path("../../cache"),
   scratchPath = file.path("../../scratch"),
-  inputPath = inputsDir,
-  outputPath = outputsDir
+  inputPath = file.path("../../inputs"),
+  outputPath = file.path("../../outputs")
 )
-
 simPaths <- getPaths()
 
+# specifiy where outputs go
+outputFolderSpPreds <- checkPath(file.path(Paths$outputPath, "PS/spPreds/"), create = TRUE)
+outputFolderSpPredsRasters <- checkPath(file.path(Paths$outputPath, "PS/spPredsRasters"), create = TRUE)
 
-# parameters from local
-birdList <- sort(c("CAWA", "OVEN"))
-# AB study Area bird list (25% prob of occurrence in 1% of the area)
-# birdList <- sort(c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO", "BOCH",
-#                    "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE",
-#                    "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN",
-#                    "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
+# specify where inputs come from
+locationRasterToMatch <- Paths$inputPath
+rasterToMatchName <- "ALFL-meanBoot_BCR-60_studyArea_AB_BCR6"
 
-rasterToMatchLocation <- inputsDir
-rasterToMatchName <- "LCC2005_V1_4a.tif"
-studyAreaLocation <- downloadFolderArea
-nameBCR <- "60"
-
+locationStudyArea <- checkPath(file.path(Paths$inputPath, "studyArea/studyArea_AB_BCR6"), create = TRUE)
 .studyAreaName <- "studyArea_AB_BCR6.shp"
 
-nameForClassRaster <- "vegTypesRas_AB_BCR6_2011"
-folderUrlForClass <- downloadFolderForestClass
+locationLandscapeRasters <- checkPath(file.path(Paths$inputPath, "landscapeRasters"), create = TRUE)
 
-nameLandClassRaster <- "landCoverRas_AB_BCR6_2010"
-folderUrlLandClass <- downloadFolderForestClass
+nameForClassRas <- "vegTypesRas_AB_BCR6_2011"
+locationForClass <- locationLandscapeRasters
 
-nameAgeRaster <- "ageRas_AB_BCR6_2011"
-folderUrlAge <- downloadFolderForestClass
-folderUrlBirdRaster <- downloadFolderBird
+nameLandClassRas <- "landCoverRas_AB_BCR6_2010"
+locationLandClass <- locationLandscapeRasters
+
+nameAgeRas <- "ageRas_AB_BCR6_2011"
+locationAge <- locationLandscapeRasters
+
+locationSpRas <- checkPath(file.path(Paths$inputPath, "meanSpRasters"), create = TRUE)
+
+
+# specify BCR
+nameBCR <- "60"
+
+# specify species to include
+# spList <- sort(c("OVEN")) #tester list
+spList <- sort(c(
+  "ALFL", "BBWA", "BCCH", "BOCH", "BRCR", "CMWA", "COYE",
+  "DEJU", "GCKI", "GRAJ", "LEFL", "MOWA", "OVEN", "PAWA",
+  "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"
+))
 
 
 ## Set simulation and module parameters
@@ -56,22 +58,23 @@ simParams <- list(
     doPredsInitialTime = 1,
     .plotInitialTime = 1,
     .saveInitialTime = 1,
-    classOnly = FALSE,
-    nTrees = 5000,
+    nTrees = 10, # 5000,
     ageGrouping = 20,
     maxAgeClass = 10,
-    birdList = birdList,
-    .studyAreaName = .studyAreaName,
-    rasterToMatchLocation = rasterToMatchLocation,
-    rasterToMatchName = rasterToMatchName,
-    studyAreaLocation = studyAreaLocation,
+    only1DPS = FALSE,
+    spList = spList,
     nameBCR = nameBCR,
-    nameForClassRaster = nameForClassRaster,
-    folderUrlForClass = folderUrlForClass,
-    nameLandClassRaster = nameLandClassRaster,
-    folderUrlLandClass = folderUrlLandClass,
-    nameAgeRaster = nameAgeRaster,
-    folderUrlAge = folderUrlAge
+    studyAreaLocation = locationStudyArea,
+    .studyAreaName = .studyAreaName,
+    rasterToMatchLocation = locationRasterToMatch,
+    rasterToMatchName = rasterToMatchName,
+    nameForClassRas = nameForClassRas,
+    locationForClass = locationForClass,
+    nameLandClassRas = nameLandClassRas,
+    locationLandClass = locationLandClass,
+    nameAgeRas = nameAgeRas,
+    locationAge = locationAge,
+    locationSpRas = locationSpRas
   )
 )
 
