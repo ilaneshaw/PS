@@ -67,7 +67,7 @@ This is a template for module documentation, and should be changed to reflect yo
 ### Module inputs and parameters
 
 Describe input data required by the module and how to obtain it (e.g., directly from online sources or supplied by other modules)
-If `sourceURL` is specified, `downloadData("PS", "C:/Users/RALAS6/Documents/Repositories/SpaDES/modules")` may be sufficient.
+If `sourceURL` is specified, `downloadData("PS", file.path("../../modules"))` may be sufficient.
 Table \@ref(tab:moduleInputs-PS) shows the full list of module inputs.
 
 ```{r moduleInputs-PS, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
