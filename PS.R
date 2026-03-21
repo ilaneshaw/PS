@@ -103,7 +103,7 @@ defineModule(sim, list(
       "the zip file the forest class raster is located in"
     ),
     defineParameter(
-      "nameLandClassRaster", "character", NA, NA, NA,
+      "nameLandClassRas", "character", NA, NA, NA,
       "the file name of the land cover raster"
     ),
     defineParameter(
@@ -144,9 +144,9 @@ defineModule(sim, list(
     # expectsInput("objectName", "objectClass", "input object description", sourceURL, ...),
     expectsInput("rasterToMatch", "SpatRaster", desc = "A raster used to determine projection of other spatial objects. Must cover all of the region covered by the studyArea"),
     expectsInput("studyArea", "SpatVector", desc = "Polygon to use as the study area."),
-    expectsInput(objectName = "forClassRaster", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
-    expectsInput(objectName = "landClassRaster", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
-    expectsInput(objectName = "ageRaster", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
+    expectsInput(objectName = "forClassRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
+    expectsInput(objectName = "landClassRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
+    expectsInput(objectName = "ageRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
     expectsInput(objectName = "spRasters", objectClass = NA, desc = NA, sourceURL = NA)
   ),
   outputObjects = bindrows(
@@ -316,9 +316,9 @@ Save <- function(sim) {
     "saving sp datasets"
   )
   save(sim$spDatasets,
-    file = file.path(outputFolderSpPreds, "spDatasets.Rdata")
+    file = file.path(sim$outputPredsLocation, "spDatasets.Rdata")
   )
-  # load(file.path(outputFolderSpPreds, "spDatasets.Rdata"))
+  # load(file.path(sim$outputPredsLocation, "spDatasets.Rdata"))
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -327,35 +327,31 @@ Save <- function(sim) {
 ### template for plot events
 plotFun <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  # do stuff for this event
-
-  # sampleData <- data.frame("TheSample" = sample(1:10, replace = TRUE))
-  # Plots(sampleData, fn = ggplotFn)
 
   clearPlot()
 
-  # PLOT INPUT LANDSCAPE RASTERS
+  # Plot input landscape rasters ####
 
-  # rasterToMatch
-  quickPlot::Plot(sim$rasterToMatch, na.color = "blue", title = "Raster To Match", new = TRUE, legend = TRUE)
+  ## Plot rasterToMatch ####
+  quickPlot::Plot(sim$rasterToMatch, na.color = "blue", title = "rasterToMatch", new = TRUE, legend = TRUE)
   clearPlot()
 
-  # forClassRaster
-  # quickPlot::Plot(sim$forClassRaster, na.color = "blue", title = "Forest Class raster", new = TRUE, legend = TRUE)
-  # clearPlot()
-
-  # landClassRaster
-  quickPlot::Plot(sim$landClassRaster, na.color = "blue", title = "Land Class Raster", new = TRUE, legend = TRUE)
+  ## Plot forClassRas ####
+  quickPlot::Plot(sim$forClassRas, na.color = "blue", title = "Forest Class raster", new = TRUE, legend = TRUE)
   clearPlot()
 
+  ## Plot landClassRas ####
+  quickPlot::Plot(sim$landClassRas, na.color = "blue", title = "Land Class Raster", new = TRUE, legend = TRUE)
+  clearPlot()
+
+  ## Plot ageRas
   if (P(sim)$only1DPS == FALSE) {
-    # ageRaster
-    quickPlot::Plot(sim$ageRaster, na.color = "blue", title = "Age Raster", new = TRUE, legend = TRUE)
+    quickPlot::Plot(sim$ageRas, na.color = "blue", title = "Age Raster", new = TRUE, legend = TRUE)
     clearPlot()
   }
 
-  # PLOT KERNEL DENSIY PLOTS
-  lapply(P(sim)$spList, FUN = function(sp) {
+  # Plot 1DPS kernel density plots ####
+  lapply(sim$spList, FUN = function(sp) {
     spDataset <- eval(parse(text = paste("sim$spDatasets$", sp, sep = "")))
     spDataset$landForClass <- as.factor(spDataset$landForClass)
     spDataset$species <- as.factor(spDataset$species)
@@ -377,8 +373,8 @@ plotFun <- function(sim) {
   })
 
 
-  # PLOT 1D Predictions
-  lapply(P(sim)$spList, FUN = function(sp) {
+  # Plot 1DPS predictions
+  lapply(sim$spList, FUN = function(sp) {
     spPred <- eval(parse(text = paste("sim$spPreds1D$", sp, sep = "")))
     spPred$landForClass <- as.factor(spPred$landForClass)
     spPred$FoLRaster <- as.factor(spPred$FoLRaster)
@@ -412,26 +408,17 @@ plotFun <- function(sim) {
     }
   })
 
+  # Plot 2DPS predictions ####
   if (P(sim)$only1DPS == FALSE) {
-    # PLOT 2D PREDICTIONS
-    lapply(P(sim)$spList, FUN = function(sp) {
+    lapply(sim$spList, FUN = function(sp) {
       matrix <- eval(parse(text = paste("sim$spPreds$spMatricies$", sp, sep = "")))
 
-      # matrix <- matrix[2:ncol(matrix)]
-      # matrix <- data.matrix(matrix)
       tab <- melt(matrix)
       colnames(tab) <- c("forClass", "ageClass", "spDensityPred")
-      # species <- rep(paste(sp), nrow(tab))
-      # tab <- cbind(tab, species = species)
       tab$ageClass <- as.factor(tab$ageClass)
       tab$forClass <- as.factor(tab$forClass)
-      # tab$species <- as.character(tab$species)
       tab$spDensityPred <- as.numeric(tab$spDensityPred)
 
-      # spPred$landForClass <- as.factor(spPred$landForClass)
-      # spPred$FoLRaster <- as.factor(spPred$FoLRaster)
-      # spPred$species <- as.factor(spPred$species)
-      #
       if (requireNamespace("ggplot2")) {
         plot2DPredictions <- tab |> ggplot2::ggplot(ggplot2::aes(
           fill = forClass,
@@ -459,6 +446,8 @@ plotFun <- function(sim) {
     })
   }
 
+  print("end PS plotting")
+
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
 }
@@ -466,25 +455,24 @@ plotFun <- function(sim) {
 ### template for your event1
 do1DPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
 
-  # get sp datasets
-
-  sim$spDatasets <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  # Make sp datasets ####
+  sim$spDatasets <- lapply(X = sim$spList, FUN = function(sp) {
     spLayer <- eval(parse(text = paste("sim$spRasters$", sp, sep = "")))
+
     if (P(sim)$only1DPS == FALSE) {
+      ## 2DPS datasets ####
+
+      ### gather rasters
       landSpRasters <- c(
         spLayer,
-        sim$forClassRaster,
-        sim$landClassRaster,
-        sim$ageRaster
+        sim$forClassRas,
+        sim$landClassRas,
+        sim$ageRas
       )
       print(landSpRasters)
 
-      ## take the values from the rasters and input
-      ## them to a data table called spDataset
+      ### input raster values to data table
       spDataset <- terra::values(landSpRasters, dataframe = TRUE)
       spDataset <- setnames(spDataset, c(
         "spDensity",
@@ -493,14 +481,16 @@ do1DPreds <- function(sim) {
         "age"
       ))
     } else {
+      ## 1DPS datasets ####
+
+      ### gather rasters
       landSpRasters <- c(
         spLayer,
-        sim$forClassRaster,
-        sim$landClassRaster
+        sim$forClassRas,
+        sim$landClassRas
       )
       print(landSpRasters)
-      ## take the values from the rasters and input
-      ## them to a data table called spDataset
+      ### input raster values to data table
       spDataset <- terra::values(landSpRasters, dataframe = TRUE)
       spDataset <- setnames(spDataset, c(
         "spDensity",
@@ -508,10 +498,12 @@ do1DPreds <- function(sim) {
         "landClass"
       ))
     }
+
+    ## Tidy dataset ####
     spDataset <- as.data.table(spDataset)
     spDataset <- spDataset[!is.na(spDensity)] # get rid of cells with no spDensity data
 
-    # create column saying if the cell is from the forest class or land class raster
+    ### create column saying if value is from forest or land class raster
     spDataset <- spDataset[, FoLRaster := ifelse(!is.na(landClass) & !is.na(forClass), "forClass",
       ifelse(!is.na(landClass), "landClass",
         ifelse(!is.na(forClass), "forClass", NA)
@@ -519,7 +511,7 @@ do1DPreds <- function(sim) {
     )]
     spDataset <- spDataset[!is.na(FoLRaster)] # get rid of cells with no forest or land class data.
 
-    # set data types
+    ### set data classes
     spDataset$landClass <- as.factor(spDataset$landClass)
     spDataset$forClass <- as.factor(spDataset$forClass)
     spDataset$FoLRaster <- as.factor(spDataset$FoLRaster)
@@ -527,12 +519,11 @@ do1DPreds <- function(sim) {
     spDataset$spDensity <- as.numeric(spDataset$spDensity)
 
 
-    # make column giving the land or forest class for each row.
+    ### make column giving the land or forest class for each row.
     spDataset <- spDataset[, landForClass := coalesce(forClass, landClass)]
-    # set data type
     spDataset$landForClass <- as.factor(spDataset$landForClass)
 
-    # in case there are classes named the same in both rasters, combine the landForClass and FoLRaster data to make sure each class is unique
+    ### create column combining landForClass and FoLRaster columns to ensure class uniqueness
     spDataset <- unite(spDataset,
       landForClass,
       c(
@@ -544,91 +535,79 @@ do1DPreds <- function(sim) {
     print(sort(unique(spDataset$landForClass)))
     spDataset <- as.data.table(spDataset)
 
-
+    ### add species column
     nrowCV <- nrow(spDataset)
     spDataset$species <- rep(sp, nrowCV)
     spDataset$studyArea <- rep(P(sim)$.studyAreaName, nrowCV)
-    # print(spDataset)
+
+    ### save dataset
     fileName <- paste(P(sim)$.studyAreaName, "_", sp, "_fullDataset.csv", sep = "")
-    write.csv(spDataset, file = file.path(outputFolderSpPreds, fileName))
+    write.csv(spDataset, file = file.path(sim$outputPredsLocation, fileName))
 
     print(paste(sp, " dataset complete"))
 
     return(spDataset)
   })
 
-  # # names(spDatasets) <- names(spRasters)
-  # # for (i in names(spDatasets)) {
-  # #   attr(spDatasets[[i]],"Species") <- i
-  #
-  # }
+  names(sim$spDatasets) <- sim$spList
 
-  names(sim$spDatasets) <- P(sim)$spList
-
-
-  sim$spPreds1D <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  # Calculate 1DPS preds ####
+  sim$spPreds1D <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
 
-    # get spPreds1D
     singleSpDataset <- eval(parse(text = paste("sim$spDatasets$", sp, sep = "")))
     singleSpDataset <- as.data.table(singleSpDataset)
-    # print(singleSpDataset)
+
     spStats <- singleSpDataset[
       order(
         FoLRaster,
         landForClass
-      )
-      # order the rows by the land cover class
+      ) # order the rows by the cover class
     ][, list(
-      classCount = .N,
-      # get the number of cells
-      # each cover class
-      # meanSpDensity = mean(spDensity),
-      # get the mean sp density
-      # for each cover class
-      meanSpDensity = mean(spDensity),
-      # get median sp density for each class
-      medianSpDensity = median(spDensity),
-      varSpDensity = var(spDensity) * (.N - 1) / .N,
-      # get the population variance for sp density
-      # for each cover class
-      seSpDensity = std.error(spDensity),
-      # get the standard error
-      # for sp density
-      # for each cover class
-      normality_stat = tryCatch(ad.test(spDensity)$statistic, error = function(cond) {
-        return(NaN)
-      }),
-      normality_p = tryCatch(ad.test(spDensity)$p.value, error = function(cond) {
-        return(NaN)
-      }),
-      # ifelse(mean(spDensity) > 0,
-      # tryCatch(ad.test(spDensity)$p.value,
-      # error = function(cond){return(NA)}), NA),
-      unimodality_stat = tryCatch(dip.test(spDensity)$statistic, error = function(cond) {
-        return(NaN)
-      }),
-      unimodality_p = tryCatch(dip.test(spDensity)$p.value, error = function(cond) {
-        return(NaN)
-      }),
-      species = sp,
+      classCount = .N, # get the number of cells
+      meanSpDensity = mean(spDensity), # get mean sp density
+      medianSpDensity = median(spDensity), # get median species density
+      varSpDensity = var(spDensity) * (.N - 1) / .N, # get the population variance for sp density
+      seSpDensity = std.error(spDensity), # get the standard error for sp density
+      normality_stat = tryCatch(ad.test(spDensity)$statistic,
+        error = function(cond) {
+          return(NaN)
+        }
+      ), # normality test stat
+      normality_p = tryCatch(ad.test(spDensity)$p.value,
+        error = function(cond) {
+          return(NaN)
+        }
+      ), # normality test p-value
+      unimodality_stat = tryCatch(diptest::dip.test(spDensity)$statistic,
+        error = function(cond) {
+          return(NaN)
+        }
+      ), # unimodality test stat
+      unimodality_p = tryCatch(diptest::dip.test(spDensity)$p.value,
+        error = function(cond) {
+          return(NaN)
+        }
+      ), # unimodality test p-value
+      species = sp, # include column giving species
       studyArea = P(sim)$.studyAreaName
-    ),
+    ), # include column giving study area name
     by = list(
       FoLRaster,
       landForClass
-    )
+    ) # get for each class
     ]
 
-
     print(spStats)
+
+    ### save
     fileName <- paste(P(sim)$.studyAreaName, "_", sp, "_spPreds1D.csv", sep = "")
-    write.csv(spStats, file = file.path(outputFolderSpPreds, fileName))
+    write.csv(spStats, file = file.path(sim$outputPredsLocation, fileName))
 
     return(spStats)
   })
 
-  names(sim$spPreds1D) <- P(sim)$spList
+  names(sim$spPreds1D) <- sim$spList
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -636,18 +615,13 @@ do1DPreds <- function(sim) {
 
 map1D <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
-  # get summary of assumptions/stats for 1D
 
-
-  #### MAP OUT 1D PREDICTIONS
+  # Map out 1DPS predictions ####
   print("get 1DMaps")
 
-  # get non-Forest 1D data together
+  ### Separate land-cover class data ####
   print("get non-for 1D data")
-  lc1DPreds <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  lc1DPreds <- lapply(X = sim$spList, FUN = function(sp) {
     # separate out data table rows that are forested, get rid of unnecessary forestedStatus column
     landCoverDT <- as.data.table(eval(parse(text = paste("sim$spPreds1D$", sp, sep = ""))))
     landCoverDT <- landCoverDT[landCoverDT$FoLRaster == "landClass"]
@@ -658,63 +632,57 @@ map1D <- function(sim) {
     return(landCoverDT)
   })
 
-  names(lc1DPreds) <- P(sim)$spList
+  names(lc1DPreds) <- sim$spList
 
 
-  # reclassify land cover raster to get map of 1D sp preds in land class raster areas
+  ## Reclassify land cover raster with 1DPS predictions ####
   print("make lc1DMaps")
-  sim$lc1DMaps <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  sim$lc1DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
-
     lcSpPreds <- eval(parse(text = paste("lc1DPreds$", sp, sep = "")))
 
-    # make numeric
     lcSpPreds <- lcSpPreds[, landForClass := as.numeric(landForClass)]
     lcSpPreds <- lcSpPreds[, meanSpDensity := as.numeric(meanSpDensity)]
-    # str(lcSpPreds) #check
 
-    # raster1DBins <- landClassRaster
-    raster1DBins <- terra::classify(sim$landClassRaster, lcSpPreds)
+    raster1DBins <- terra::classify(sim$landClassRas, lcSpPreds)
 
     names(raster1DBins) <- paste(sp)
-    # plot(raster1DBins)
 
     print(paste(sp, "lc 1D map raster complete"))
     return(raster1DBins)
   })
 
-  names(sim$lc1DMaps) <- P(sim)$spList
+  names(sim$lc1DMaps) <- sim$spList
 
 
-  # get Forest 1D data together
+  ## Separate 1DPS forest class predictions ####
   print("get for1DPreds")
-  for1DPreds <- lapply(X = P(sim)$spList, FUN = function(sp) {
-    # separate out data table rows that are forested, get rid of unnecessary forestedStatus column
+  for1DPreds <- lapply(X = sim$spList, FUN = function(sp) {
     forestedDT <- as.data.table(eval(parse(text = paste("sim$spPreds1D$", sp, sep = ""))))
     forestedDT <- forestedDT[FoLRaster == "forClass"]
     forestedDT <- forestedDT[, c(2, 4)]
     forestedDT <- droplevels(forestedDT)
     forestedDT$landForClass <- gsub("[^0-9]", "", forestedDT$landForClass)
+
     return(forestedDT)
   })
 
-  names(for1DPreds) <- P(sim)$spList
+  names(for1DPreds) <- sim$spList
 
 
-  # reclassify forest class raster to give 1D sp prediction values for each sp sp
+  ## Reclassify forest class raster with 1DPS predictions ####
   print("get for1DMaps")
-  sim$for1DMaps <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  sim$for1DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
 
     forSpPreds <- eval(parse(text = paste("for1DPreds$", sp, sep = "")))
 
-    # make numeric
     forSpPreds <- forSpPreds[, landForClass := as.numeric(landForClass)]
     forSpPreds <- forSpPreds[, meanSpDensity := as.numeric(meanSpDensity)]
     str(forSpPreds) # check
 
-    # raster1DBins <- landClassRaster
-    raster1DBinsForest <- terra::classify(sim$forClassRaster, forSpPreds)
+    # raster1DBins <- landClassRas
+    raster1DBinsForest <- terra::classify(sim$forClassRas, forSpPreds)
 
     names(raster1DBinsForest) <- paste(sp)
     # plot(raster1DBinsForest)
@@ -724,11 +692,11 @@ map1D <- function(sim) {
     return(raster1DBinsForest)
   })
 
-  names(sim$for1DMaps) <- P(sim)$spList
+  names(sim$for1DMaps) <- sim$spList
 
-  # Get full 1D Map
+  ## Combine forest and land cover Maps ####
   print("get for1DAndLc1DMaps")
-  sim$for1DAndLc1DMaps <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  sim$for1DAndLc1DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
     raster1DBinsLc <- eval(parse(text = paste("sim$lc1DMaps$", sp, sep = "")))
     raster1DBinsFor <- eval(parse(text = paste("sim$for1DMaps$", sp, sep = "")))
@@ -746,16 +714,16 @@ map1D <- function(sim) {
     return(spPredsRaster1D)
   })
 
-  names(sim$for1DAndLc1DMaps) <- P(sim)$spList
+  names(sim$for1DAndLc1DMaps) <- sim$spList
 
+  ### save
   print("save full 1D maps")
-
-  lapply(X = P(sim)$spList, FUN = function(sp) {
+  lapply(X = sim$spList, FUN = function(sp) {
     raster <- eval(parse(text = paste("sim$for1DAndLc1DMaps$", sp, sep = "")))
     names(raster) <- paste(sp)
     terra::writeRaster(
       x = raster,
-      filename = file.path(outputFolderSpPredsRasters, paste(P(sim)$.studyAreaName, "_", sp, "_for1DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, paste(P(sim)$.studyAreaName, "_", sp, "_for1DAndLc1DMap", sep = "")),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
@@ -769,30 +737,27 @@ map1D <- function(sim) {
 
 do2DPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
 
-  # get 2D sp predictions (by forest and age class)
+  # Make 2DPS predictions ####
   spGBM <- lapply(X = sim$spDatasets, FUN = function(spDF) {
-    # keep track of how long each sp takes
-    # print(Sys.time())
+    ### keep track of how long each sp takes
+    print(Sys.time())
 
     sp <- unique(spDF$species)
     print(sp)
     spDT <- as.data.table(spDF)
 
-    # separate out data table rows that are forested
+    ## Separate rows with forest data ####
     forestedDT <- spDT[FoLRaster == "forClass"]
-    forestedDT <- forestedDT[, c(1, 2, 4)]
+    forestedDT <- forestedDT[, c("spDensity", "forClass", "age")]
     forestedDT$forClass <- as.factor(forestedDT$forClass)
     forestedDT$age <- as.integer(forestedDT$age)
     forestedDT <- droplevels(forestedDT)
 
-    # get rid of any rows with NA for age
+    ### Remove age NAs
     forestedDT <- na.omit(forestedDT, cols = "age")
 
-    # fit gbm
+    ## Fit gbm ####
     print("fit gbm")
     gbmFitted <- gbm::gbm(
       formula = spDensity ~ .,
@@ -807,13 +772,13 @@ do2DPreds <- function(sim) {
       train.fraction = 1
     ) # same number of trees as used in predict.gbm
 
-    # print summary of relative influence by the factors
-    # par(mar = c(5, 8, 1, 1))
+    ## Get gbm stats ####
+
+    ### Get relInf
     relInfGBM <- summary(gbmFitted)
-    # relInfGBM <- title(main = sp)
     relInfGBM
 
-    # get Freidman's h-stat
+    ### Get H-stat
     FriedmansHStat <- gbm::interact.gbm(gbmFitted,
       data = forestedDT,
       i.var = c(1, 2),
@@ -821,15 +786,17 @@ do2DPreds <- function(sim) {
     )
     # print(FriedmansHStat)
 
-    # #check gbm plot
-    plotGBM <- gbm::plot.gbm(gbmFitted, i.var = c(1, 2), main = sp, xlab = "Forest Age (yrs)", ylab = "Sp Density (males/ha)")
+    ### Check gbm plot
+    plotGBM <- gbm::plot.gbm(gbmFitted,
+      i.var = c(1, 2),
+      main = sp,
+      xlab = "Forest Age (yrs)",
+      ylab = "Sp Density"
+    )
     plotGBM
 
-    # make into single summary object
-    # statsGBM <- list(relInfGBM, FriedmansHStat) #, plotGBM)
-    # names(statsGBM) <- c("relInfGBM", "FriedmansHStat") #, "plotGBM")
-
-    relInfForClass <- relInfGBM[relInfGBM$var == "landForClass", ]
+    ### make into single stats object
+    relInfForClass <- relInfGBM[relInfGBM$var == "forClass", ]
     relInfForClass <- relInfForClass$rel.inf
     relInfAge <- relInfGBM[relInfGBM$var == "age", ]
     relInfAge <- relInfAge$rel.inf
@@ -837,16 +804,21 @@ do2DPreds <- function(sim) {
     statsGBM <- cbind(species, FriedmansHStat, relInfForClass, relInfAge)
     print(statsGBM)
 
-    # generate prediction df using expand
+    ## Make prediction df ####
     sim$maxAge <- max(forestedDT$age) # get age of oldest cell listed in forestedDF
     sim$maxAgeClassAge <- P(sim)$maxAgeClass * P(sim)$ageGrouping
-    ifelse(sim$maxAge > sim$maxAgeClassAge, sim$allAges <- c(0:sim$maxAge), sim$allAges <- c(0:sim$maxAgeClassAge)) # make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
-    spPredictDT <- forestedDT %>% expand(forClass, sim$allAges) # make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class.
-    names(spPredictDT) <- c("forClass", "age") # rename the two columns in spPredictDF
+    ifelse(sim$maxAge > sim$maxAgeClassAge,
+      sim$allAges <- c(0:sim$maxAge),
+      sim$allAges <- c(0:sim$maxAgeClassAge)
+    ) # make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
+    spPredictDT <- forestedDT %>% expand(
+      forClass,
+      sim$allAges
+    ) # make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class.
+    names(spPredictDT) <- c("forClass", "age") # rename the columns
 
-    # do prediction
-    # (object, newdata, n.trees, type = "link", single.tree = FALSE,...)
-    # This action produces a vector of predictions for the variables given by each row in spPredictDF
+    ## gbm pred ####
+    ### This produces a vector of predictions for the variables given by each row in spPredictDF
     print("do gbmPred")
     gbmPred <- gbm::predict.gbm(
       object = gbmFitted,
@@ -856,6 +828,7 @@ do2DPreds <- function(sim) {
       single.tree = FALSE
     )
 
+    ## Aggregate predictions by age class ####
     noAgeClasses <- sim$maxAge / P(sim)$ageGrouping # get the number of age classes if the max age was simply divided by the age Grouping
     ageClasses <- ifelse(noAgeClasses < P(sim)$maxAgeClass, ageClasses <- P(sim)$maxAgeClass, ageClasses <- noAgeClasses)
     ageClasses <- rep(1:ageClasses, each = P(sim)$ageGrouping)
@@ -875,82 +848,76 @@ do2DPreds <- function(sim) {
     gbmPredDT$landForClass <- as.factor(gbmPredDT$forClass)
     gbmPredDT$ageClasses <- as.factor(gbmPredDT$ageClasses)
 
-    # gbmPredDF <- aggregate( gbmPred ~ ageClasses * landForClass, gbmPredDF, mean )
     gbmPredDT <- gbmPredDT[order(list(forClass, ageClasses))][, list(gbmPred = mean(gbmPred)),
       by = list(forClass, ageClasses)
     ]
 
 
-    # form matrix with landForClass as y axis and age as x axis
+    ## Form matrix with forest class as y and age as x ####
     print("form spMatrix")
     spMatrix <- reshape2::acast(gbmPredDT,
       forClass ~ ageClasses,
       value.var = "gbmPred"
     )
 
-    # if any matrix prediction values are negative, make them be 0
+    ### If any matrix prediction values are negative, make them be 0
     spMatrix[spMatrix < 0] <- 0
     print(spMatrix)
-    # save 2D spPreds
-    matrixName <- paste(P(sim)$.studyAreaName, "_", sp, "_spPreds2D.csv", sep = "")
-    write.csv(spMatrix, file = file.path(outputFolderSpPreds, matrixName))
 
-    # return(spMatrix)
+    ### Save
+    matrixName <- paste(P(sim)$.studyAreaName, "_", sp, "_spPreds2D.csv", sep = "")
+    write.csv(spMatrix, file = file.path(sim$outputPredsLocation, matrixName))
+
     matrixAndSummary <- list(spMatrix, statsGBM)
     names(matrixAndSummary) <- c("spMatricies", "statsGBM")
 
     return(matrixAndSummary)
   })
 
-  names(spGBM) <- P(sim)$spList
+  names(spGBM) <- sim$spList
 
-  # separate matricies from summaries
+  ### Separate matricies from stats ####
+  #### Species matricies
   print("separate out matricies")
-
-  sim$spMatricies <- lapply(X = spList, FUN = function(sp) {
+  sim$spMatricies <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
+
     spMatrix <- eval(parse(text = paste("spGBM$", sp, "$spMatricies", sep = "")))
 
     matrixName <- paste(P(sim)$.studyAreaName, "_", sp, "_matrix.csv", sep = "")
-    write.csv(spMatrix, file = file.path(outputFolderSpPreds, matrixName))
+
+    ### Save
+    write.csv(spMatrix, file = file.path(sim$outputPredsLocation, matrixName))
 
     return(spMatrix)
   })
 
-  names(sim$spMatricies) <- P(sim)$spList
+  names(sim$spMatricies) <- sim$spList
 
-  # make table of all GBM Stats
+  ####  GBM Stats
   print("make table of GBM stats")
-  statsList <- lapply(X = spList, FUN = function(sp) {
+  statsList <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
     GBMStats <- as.data.table(eval(parse(text = paste("spGBM$", sp, "$statsGBM", sep = ""))))
     return(GBMStats)
   })
 
   sim$statsGBM <- rbindlist(statsList)
-  write.csv(sim$statsGBM, file = file.path(outputFolderSpPreds, paste(P(sim)$.studyAreaName, "_statsGBM.csv", sep = "")))
+
+  # save
+  write.csv(sim$statsGBM, file = file.path(sim$outputPredsLocation, paste(P(sim)$.studyAreaName, "_statsGBM.csv", sep = "")))
 
 
-  # create table defining age classes
-
-  # diffMaxAge <- sim$maxAge- sim$maxAgeClassAge
-  # if (!diffMaxAge < 1){
-  #   ageClasses <- c(1, rep(1:P(sim)$maxAgeClass, each = P(sim)$ageGrouping),   rep(P(sim)$maxAgeClass, times = diffMaxAge)) #make vector of age classes to correspond with the vector allAges
-  #   ageClassDefs <- cbind(sim$allAges, ageClasses)
-  # } else {
-  #   allAges <- c(allAges, (sim$maxAge+1):sim$maxAgeClassAge)
-  #   ageClasses <- c(1, rep(1:maxAgeClass, each = P(sim)$ageGrouping)) #make vector of age classes to correspond with the vector allAges
-  #   ageClassDefs <- cbind(sim$allAges,ageClasses)
-  # }
-
+  ## Make table defining age classes ####
   ageClassDefs <- as.data.table(cbind(sim$allAges, sim$ageClasses)) # makes data table that in one column has every age from 0 to max age (or max age class age if bigger), and the corresponding age class in the second column
   names(ageClassDefs) <- c("allAges", "ageClasses")
   # ageClassDefs <- as.data.table(ageClassDefs)
   sim$ageClassDefs <- ageClassDefs[, ageClasses := as.character(ageClasses)]
-  write.csv(sim$ageClassDefs, file = file.path(outputFolderSpPreds, paste(P(sim)$.studyAreaName, "_ageClassDefs", sep = "")))
+  ### save
+  write.csv(sim$ageClassDefs, file = file.path(sim$outputPredsLocation, paste(P(sim)$.studyAreaName, "_ageClassDefs", sep = "")))
 
 
-  # make list object of all outputs needed for MB Module
+  ### Make list of objects for examinePS module
   print("make spPreds object")
   sim$spPreds <- list(sim$spMatricies, sim$spPreds1D, sim$ageClassDefs)
   names(sim$spPreds) <- c("spMatricies", "spPreds1D", "ageClassDefs")
@@ -961,127 +928,74 @@ do2DPreds <- function(sim) {
 
 map2D <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  # THE NEXT TWO LINES ARE FOR DUMMY UNIT TESTS; CHANGE OR DELETE THEM.
-  # sim$event1Test1 <- " this is test for event 1. " # for dummy unit test
-  # sim$event1Test2 <- 999 # for dummy unit test
 
+  # Map 2DPS predictions ####
+  print("MAKE 2D MAPS")
 
-  #### GET 2D MAPS OF MATRIX PREDICTIONS
-  print("GET 2D MAPS")
-
-  print("make age class raster")
-  # reclassify forAgeRaster into a raster of forest age classes
+  print("Make age class raster")
+  ## Make age class raster ####
+  ### Reclassify ageRas into age classes
   ageReClassTab <- sim$spPreds$ageClassDefs
   ageReClassTab <- ageReClassTab[, ageClasses := as.numeric(ageClasses)] # change data type of ageClassDefs
   str(ageReClassTab) # check
-  ageClassRaster <- sim$ageRaster # make copy of forAgeRaster to be reclassified
-  ageClassRaster <- terra::classify(ageClassRaster, ageReClassTab) # do the reclassification based on ageClassDefs
-  names(ageClassRaster) <- "ageClassRaster"
-  sim$ageClassRaster <- ageClassRaster # check over the raster that has been reclassified
-  sim$ageClassRaster <- terra::mask(terra::crop(sim$ageClassRaster, sim$forClassRaster), sim$forClassRaster)
-  print(sim$ageClassRaster)
+  sim$ageClassRas <- sim$ageRas # make copy of forAgeRaster to be reclassified
+  sim$ageClassRas <- terra::classify(sim$ageClassRas, ageReClassTab) # do the reclassification based on ageClassDefs
+  names(sim$ageClassRas) <- "ageClassRas"
+  sim$ageClassRas <- terra::mask(terra::crop(sim$ageClassRas, sim$forClassRas), sim$forClassRas)
+  print(sim$ageClassRas) # check
 
-
-  # get for2Dmaps
-  print("get for2DMaps")
-  sim$for2DMaps <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  ## Map 2DPS predictions to forest areas ####
+  print("Make for2DMaps")
+  sim$for2DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
-    # check that spatial extent is the same for ageClassraster and forClassraster
-    print("extent of forClassRaster same as ageClassRaster?")
-    print(terra::ext(sim$forClassRaster) == terra::ext(sim$ageClassRaster))
-    print("extent of forClassRaster same as the for1DMap Raster?")
-    print(terra::ext(eval(parse(text = paste("sim$for1DMaps$", sp, sep = "")))) == terra::ext(sim$forClassRaster))
-    print("same number of cells forClassRaster  as the for1DMap Raster?")
-    print(length(terra::values(eval(parse(text = paste("sim$for1DMaps$", sp, sep = ""))))) == length(terra::values(sim$forClassRaster)))
+
+    ### check spatial extent is the same for ageClassraster and forClassraster
+    print("extent of forClassRas same as ageClassRas?")
+    print(terra::ext(sim$forClassRas) == terra::ext(sim$ageClassRas))
+    print("extent of forClassRas same as the for1DMap Raster?")
+    print(terra::ext(eval(parse(text = paste("sim$for1DMaps$", sp, sep = "")))) == terra::ext(sim$forClassRas))
+    print("same number of cells forClassRas  as the for1DMap Raster?")
+    print(length(terra::values(eval(parse(text = paste("sim$for1DMaps$", sp, sep = ""))))) == length(terra::values(sim$forClassRas)))
 
 
-    # reform matrix to make reclassification tab
+    ## Make reclassification tab ####
     matrix <- eval(parse(text = paste("sim$spPreds$spMatricies$", sp, sep = "")))
     map1D <- eval(parse(text = paste("sim$for1DMaps$", sp, sep = "")))
     raster2DBins <- map1D
-
 
     reclassTab2D <- reproducible::Cache(reshape2::melt, matrix)
     colnames(reclassTab2D) <- c("forClass", "ageClass", "spDensityPred")
     reclassTab2D <- as.data.table(reclassTab2D)
     reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
     reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
-    # reclassTab2D <- rbind(reclassTab2D, c(NA, NA, NA))
-    # reclassify Raster according to reclassTab2D, ageClassRaster and forClassRaster
-    # make an empty NA raster the same as the for1DMap
-    # raster2DBins[] <- NA
 
 
-    # # Combine categories and match with reclassification data
-    # forClassValues <- terra::values(sim$forClassRaster)
-    # ageClassValues <- terra::values(sim$ageClassRaster)
-    # raster2DBinsValues <- data.table(forClass = forClassValues, ageClass = ageClassValues)
-    # colnames(raster2DBinsValues) <- c( "forClass","ageClass")
-    # raster2DBinsValues$forClass <- as.factor(raster2DBinsValues$forClass)
-    # raster2DBinsValues$ageClass <- as.factor(raster2DBinsValues$ageClass)
-    # raster2DBinsValues <- merge(raster2DBinsValues, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
-    # raster2DBinsValues <- raster2DBinsValues$spDensityPred
-    # raster2DBinsValues <- raster2DBinsValues[!is.na(raster2DBinsValues)]
-    #
-    # Create a function to map raster values to density values
+    ## Convert forClassRas and ageClassRas to data frame ####
+    rasDF <- as.data.frame(c(sim$forClassRas, sim$ageClassRas), xy = TRUE)
+    names(rasDF) <- c("x_coord", "y_coord", "forClass", "ageClass")
 
-    # Define the function to map raster values to density values
-    map_density <- function(x, y, reclassTab2D) {
-      # Handle NA values: If either x or y is NA, return NA
-      if (is.na(x) || is.na(y)) {
-        return(NA)
-      }
+    ### Add densities from reclassTab
+    rasDF <- merge(rasDF, reclassTab2D, by = c("forClass", "ageClass"), all.x = TRUE)
 
-      # Look up the density value based on x and y
-      density_value <- reclassTab2D[forClass == x & ageClass == y, spDensityPred]
+    ## Rebuild raster from coordinates, and density predictions ####
+    raster2DPS <- rast(rasDF[, c("x_coord", "y_coord", "spDensityPred")],
+      type = "xyz",
+      crs = crs(sim$forClassRas)
+    )
 
-      # Return density value if found, otherwise NA
-      if (length(density_value) == 0) {
-        print("warning! did not find density_value")
-        return(NA)
-      } else {
-        return(density_value)
-      }
-    }
+    ### check
+    compareGeom(raster2DPS, sim$forClassRas, messages = TRUE)
+    print(raster2DPS)
 
-    # Define a function to apply to raster layers using app
-    calc_density_raster <- function(x, y) {
-      mapply(map_density, x, y, MoreArgs = list(reclassTab2D = reclassTab2D))
-    }
-
-    # Apply the function to the raster layers
-    raster2DBins <- app(c(sim$forClassRaster, sim$ageClassRaster), fun = function(x) calc_density_raster(x[[1]], x[[2]]))
-
-    names(raster2DBins) <- paste(sp)
-
-    # check the new raster
-    print(raster2DBins)
-    # clearPlot()
-    # Plot(raster2DBins, na.color = "blue", title = sp)
-
-    # terra::writeRaster(x = raster2DBins,
-    #                    filename = file.path(outputFolderSpPredsRasters, paste(P(sim)$.studyAreaName, "_", sp, "-for2DMap", sep = "")),
-    #                    filetype= "GTiff",
-    #                    gdal="COMPRESS=NONE",
-    #                    overwrite = TRUE)
-
-
-    return(raster2DBins)
+    return(raster2DPS)
   })
 
-  names(sim$for2DMaps) <- P(sim)$spList
+  names(sim$for2DMaps) <- sim$spList
 
-  # as Rdata file
-
-  # save(for2DMaps,
-  #      file =  file.path(outputFolderSpPredsRasters, "for2DMaps.Rdata"))
-  # # #load(file.path(outputFolderSpPredsRasters, "for2DMaps.Rdata"))
-  # sim$for2DMaps <- for2DMaps
-
-  # get 2D map with Lc areas filled in with 1D predictions
+  ## make 2D map with Land cover areas filled in with 1D predictions ####
   print("get for2DAndLc1DMaps")
 
-  sim$for2DAndLc1DMaps <- lapply(X = P(sim)$spList, FUN = function(sp) {
+  sim$for2DAndLc1DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
     raster1DBins <- eval(parse(text = paste("sim$lc1DMaps$", sp, sep = "")))
     raster2DBins <- eval(parse(text = paste("sim$for2DMaps$", sp, sep = "")))
@@ -1093,35 +1007,21 @@ map2D <- function(sim) {
 
     names(spPredsRaster) <- paste(sp)
 
-    # spPredsRaster #visually check Raster
-    # clearPlot()
-    # Plot(spPredsRaster, na.color = "blue", title = paste(sp,  " 2D smoothing map", sep = ""))
-
-    # writeRaster(x = spPredsRaster, filename = file.path(outputFolderSpPredsRasters, paste(sp, "-spPredsRaster", sep = "")), format = "GTiff", overwrite = TRUE)
-
     print(paste(sp, "for 2D and lc 1D map raster complete"))
     return(spPredsRaster)
   })
 
-  names(sim$for2DAndLc1DMaps) <- spList
+  names(sim$for2DAndLc1DMaps) <- sim$spList
 
   print("save for2DAndLc1DMaps")
 
-  # as Rdata file
-
-  # save(for2DAndLc1DMaps,
-  #      file =  file.path(outputFolderSpPredsRasters, "for2DAndLc1DMaps.Rdata"))
-  # #load(file.path(outputFolderSpPredsRasters, "for2DAndLc1DMaps.Rdata"))
-  #
-  # as tif files
-
-
-  lapply(X = P(sim)$spList, FUN = function(sp) {
+  ### save
+  lapply(X = sim$spList, FUN = function(sp) {
     raster <- eval(parse(text = paste("sim$for2DAndLc1DMaps$", sp, sep = "")))
     names(raster) <- paste(sp)
     terra::writeRaster(
       x = raster,
-      filename = file.path(outputFolderSpPredsRasters, paste(P(sim)$.studyAreaName, "_", sp, "-for2DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, paste(P(sim)$.studyAreaName, "_", sp, "-for2DAndLc1DMap", sep = "")),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
@@ -1155,156 +1055,161 @@ map2D <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
 
 
-  # get rasterToMatch
+  # Get rasterToMatch ####
   if (!suppliedElsewhere("rasterToMatch", sim)) {
     print("get rasterTomatch from local drive")
     sim$rasterToMatch <- terra::rast(file.path(P(sim)$rasterToMatchLocation, P(sim)$rasterToMatchName))
+    names(sim$rasterToMatch) <- "rasterToMatch"
   }
 
-  # get studyArea shapefile
+  # Get studyArea shapefile ####
   if (!suppliedElsewhere("studyArea", sim)) {
     print("get studyArea shapefile from local drive")
     studyArea <- terra::vect(file.path(P(sim)$studyAreaLocation, P(sim)$.studyAreaName))
 
     # postProcess studyArea
-    # Cache(projectRaster, raster, crs = crs(newRaster))
-    message("cache studyArea")
-    sim$studyArea <- reproducible::Cache(reproducible::postProcess, studyArea,
-      # destinationPath = P(sim)$studyAreaLocation,
-      # filename2 = "studyArea",
-      useTerra = TRUE,
-      fun = "terra::vect", # use the function vect
-      targetCRS = crs(sim$rasterToMatch), # make crs same as rasterToMatch
-      # overwrite = FALSE,
+    sim$studyArea <- reproducible::Cache(reproducible::postProcessTo,
+      from = studyArea,
+      to = sim$rasterToMatch,
+      overwrite = FALSE,
       verbose = TRUE
     )
   }
 
-  # crop and mask rasterToMatch
+  # crop and mask rasterToMatch to studyArea
   sim$rasterToMatch <- reproducible::Cache(terra::crop, sim$rasterToMatch, sim$studyArea)
   sim$rasterToMatch <- reproducible::Cache(terra::mask, sim$rasterToMatch, sim$studyArea)
-  names(sim$rasterToMatch) <- "rasterToMatch"
 
-  # get forest class raster
-  if (!suppliedElsewhere("forClassRaster", sim)) {
-    print("get forClassRaster from local Drive")
-    sim$forClassRaster <- terra::rast(file.path(P(sim)$locationForClass, P(sim)$nameForClassRas))
+  # Get forest class raster ####
+  if (!suppliedElsewhere("forClassRas", sim)) {
+    print("get forClassRas")
+    sim$forClassRas <- terra::rast(file.path(P(sim)$locationForClass, P(sim)$nameForClassRas))
+    names(sim$forClassRas) <- c("forClassRas")
 
-    sim$forClassRaster <- reproducible::Cache(reproducible::postProcess, sim$forClassRaster,
-      # destinationPath = downloadFolderForestClass,
-      # use the function raster
-      # targetCRS = crs(sim$rasterToMatch),
-      fun = "terra::rast",
-      useTerra = TRUE,
-      # use the specified rasterToMatch to reproject to
-      rasterToMatch = sim$rasterToMatch,
-      studyArea = sim$studyArea,
-      useCache = getOption("reproducible.useCache", TRUE),
-      # overwrite = TRUE,
+    # postprocess raster - cropping, masking to the study area and reprojecting to the rasterToMatch
+    sim$forClassRas <- reproducible::Cache(reproducible::postProcessTo,
+      from = sim$forClassRas,
+      to = sim$rasterTomatch,
+      cropTo = sim$studyArea,
+      maskTo = sim$studyArea,
+      overwrite = FALSE,
       verbose = TRUE
     )
-    names(sim$forClassRaster) <- c("forClassRaster")
-    sim$forClassRaster[sim$forClassRaster == 0] <- NA
+
+    print(sim$forClassRas)
   }
 
-  # get land cover raster
-  if (!suppliedElsewhere("landClassRaster", sim)) {
-    print("get landClassRaster from Drive")
-    sim$landClassRaster <- terra::rast(file.path(P(sim)$locationLandClass, P(sim)$nameLandClassRas))
-    sim$landClassRaster <- reproducible::Cache(terra::crop, sim$landClassRaster, sim$studyArea)
-    sim$landClassRaster <- reproducible::Cache(terra::mask, sim$landClassRaster, sim$studyArea)
-    # sim$landClassRaster <- postProcess(sim$landClassRaster,
-    #                                 #destinationPath = downloadFolderForestClass,
-    #                                 #use the function raster
-    #                                 #targetCRS = crs(sim$rasterToMatch),
-    #                                 fun = "terra::rast",
-    #                                 useTerra = TRUE,
-    #                                 #use the specified rasterToMatch to reproject to
-    #                                 rasterToMatch = sim$rasterToMatch,
-    #                                 studyArea = sim$studyArea,
-    #                                 useCache = getOption("reproducible.useCache", TRUE),
-    #                                 #overwrite = TRUE,
-    #                                 verbose = TRUE)
-    #
-    # landClassRaster[landClassRaster == 0] <- NA
+  # Get land cover raster ####
+  if (!suppliedElsewhere("landClassRas", sim)) {
+    print("get landClassRas")
+    sim$landClassRas <- terra::rast(file.path(P(sim)$locationLandClass, P(sim)$nameLandClassRas))
+    names(sim$landClassRas) <- c("landClassRas")
 
-    names(sim$landClassRaster) <- c("landClassRaster")
-    print(sim$landClassRaster)
-    # Plot(sim$landClassRaster, na.color = "blue")
-    print(terra::unique(sim$landClassRaster))
-    sim$landClassRaster <- terra::mask(sim$landClassRaster, sim$forClassRaster, inverse = TRUE)
+    # postprocess raster - cropping, masking to the study area and reprojecting to the rasterToMatch
+    sim$landClassRas <- reproducible::Cache(reproducible::postProcessTo,
+      from = sim$landClassRas,
+      to = sim$rasterTomatch,
+      cropTo = sim$studyArea,
+      maskTo = sim$studyArea,
+      overwrite = FALSE,
+      verbose = TRUE
+    )
 
-    print(sim$landClassRaster)
-    # Plot(sim$landClassRaster, na.color = "blue")
-    print(terra::unique(sim$landClassRaster))
+    # mask out areas covered by forest class raster
+    sim$landClassRas <- terra::mask(sim$landClassRas, sim$forClassRas, inverse = TRUE)
+
+    print(sim$landClassRas)
   }
 
 
-  # get ageRaster
+  # Get ageRas ####
   if (P(sim)$only1DPS == FALSE) {
-    if (!suppliedElsewhere("ageRaster", sim)) {
-      print("get ageRaster from Drive")
-      ageRaster <- terra::rast(file.path(P(sim)$locationAge, P(sim)$nameAgeRas))
-      sim$ageRaster <- reproducible::Cache(reproducible::postProcess, ageRaster,
-        # destinationPath = downloadFolderForestClass,
-        # use the function raster
-        useTerra = TRUE,
-        fun = "terra::rast",
-        # targetCRS = crs(sim$rasterToMatch),
-        # use the specified rasterToMatch to reproject to
-        rasterToMatch = sim$rasterToMatch,
-        # studyArea = sim$studyArea,
-        useCache = getOption("reproducible.useCache", TRUE),
+    if (!suppliedElsewhere("ageRas", sim)) {
+      print("get ageRas")
+      sim$ageRas <- terra::rast(file.path(P(sim)$locationAge, P(sim)$nameAgeRas))
+      names(sim$ageRas) <- c("ageRas")
+
+      # postprocess raster - cropping, masking to the study area and reprojecting to the rasterToMatch
+      sim$ageRas <- reproducible::Cache(reproducible::postProcessTo,
+        from = sim$ageRas,
+        to = sim$rasterToMatch,
+        cropTo = sim$studyArea,
+        maskTo = sim$studyArea,
         overwrite = FALSE,
         verbose = TRUE
       )
 
-      names(sim$ageRaster) <- c("ageRaster")
+      print(sim$ageRas)
     }
   }
 
-  # get sp density rasters
+
+  # Get sp density rasters ####
   if (!suppliedElsewhere("spRasters", sim)) {
-    P(sim)$spList <- sort(P(sim)$spList)
-    ## for each item in turn from rastersForSplist the following function is applied:
-    sim$spRasters <-
-      lapply(
-        X = P(sim)$spList,
-        FUN = function(sp) {
-          print(sp)
+    sim$spList <- sort(sim$spList)
+
+    # list all species rasters in locationSpRas
+    namesAllSpRast <- list.files(path = P(sim)$locationSpRas, full.names = FALSE)
+
+    ## input the raster for each species in the spList one by one
+    sim$spRasters <- lapply(X = P(sim)$spList, FUN = function(sp) {
+      print(sp)
+      tryCatch(
+        {
           # sp <- paste(sp, ".tif", sep = "")
-          rasterFile <- paste(sp, "-meanBoot_BCR-60_studyArea_AB_BCR6", sep = "") # TODO: MAKE FLEXIBLE FOR OTHER NAMING CONVENTIONS####
-          return(terra::rast(file.path(P(sim)$locationSpRas, rasterFile)))
+
+          spRas <- namesAllSpRast[grep(sp, basename(namesAllSpRast))]
+
+          if (length(spRas) == 0) {
+            print(paste("No file found in namesAllSpRast for ", sp, sep = ""))
+          } else if (length(spRas) > 1) {
+            print(paste("Multiple files matched ", sp,
+              ":", spRas,
+              sep = ""
+            ))
+          }
+
+          spRas <- terra::rast(file.path(P(sim)$locationSpRas, spRas))
+          names(spRas) <- sp
+
+          # postprocess raster - cropping, masking to the study area and reprojecting to the rasterToMatch
+          spRas <- reproducible::postProcessTo(
+            from = spRas,
+            to = sim$rasterToMatch,
+            cropTo = sim$studyArea,
+            maskTo = sim$studyArea,
+            overwrite = FALSE,
+            verbose = TRUE
+          )
+
+          return(spRas)
+        },
+        error = function(e) {
+          return(NA)
         }
       )
-
-    # get the species codes as names for the downloadedRasters object, rather than using the whole filepath
-    # X <- lapply(sim$rastersForSpList, substr, 8, 11) #works for strings of the form "mosaic-XXXX-run3.tif"
-    X <- lapply(sim$rastersForSpList, substr, 1, 4) # works for strings of the form "XXXX-meanBoot.tif"
-    names(sim$spRasters) <- X
-
-    sim$spRasters <- lapply(X = sim$spRasters, FUN = function(RasterLayer) {
-      ## the function postProcesses the layer, cropping and masking it to a given study area and rasterToMatch, and saving it to a given destination path
-
-      print(RasterLayer)
-      proRaster <- reproducible::postProcess(RasterLayer,
-        # studyArea = sim$studyArea,
-        rasterToMatch = sim$rasterToMatch,
-        useTerra = TRUE,
-        fun = "terra::rast",
-        # destinationPath = downloadFolderSp,
-        # filename2 = paste(downloadFolderSp, "/", names(RasterLayer), ".tif", sep = ""),
-        # overwrite = TRUE,
-        verbose = TRUE
-      )
-      # clearPlot()
-      # Plot(proRaster, na.color= "grey")
-      return(proRaster)
     })
 
     names(sim$spRasters) <- P(sim)$spList
   }
 
+
+  # Remove any NAs in the spRasters List ####
+  naSp <- is.na(sim$spRasters)
+  if (any(naSp)) {
+    warning(paste(
+      "no rasters for the following species:",
+      paste(names(sim$spRasters)[naSp], collapse = ", ")
+    ))
+  }
+  sim$spRasters <- sim$spRasters[!naSp]
+
+  # change the spList to reflect only present species rasters (updated from the spList parameter)
+  sim$spList <- names(sim$spRasters)
+
+  # Set separate folders for output components ####
+  sim$outputPredsLocation <- checkPath(file.path(Paths$outputPath, "PSPreds/"), create = TRUE)
+  sim$outputRasLocation <- checkPath(file.path(Paths$outputPath, "PSRas/"), create = TRUE)
 
   # ! ----- STOP EDITING ----- ! #
   return(invisible(sim))
@@ -1314,5 +1219,3 @@ ggplotFn <- function(data, ...) {
   ggplot(data, aes(TheSample)) +
     geom_histogram(...)
 }
-
-### add additional events as needed by copy/pasting from above

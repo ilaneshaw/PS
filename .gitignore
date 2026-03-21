@@ -17,7 +17,7 @@
 # do not ignore the readme, citation and licence
 !README.md
 !CITATION.cff
-!LICENsE
+!LICENSE
 !COPYING.txt
 
 # do not ignore the following folders
