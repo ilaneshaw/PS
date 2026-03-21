@@ -71,7 +71,7 @@ If `sourceURL` is specified, `downloadData("PS", "C:/Users/RALAS6/Documents/Repo
 Table \@ref(tab:moduleInputs-PS) shows the full list of module inputs.
 
 ```{r moduleInputs-PS, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
-df_inputs <- SpaDES.core::moduleInputs("PS", "C:/Users/RALAS6/Documents/Repositories/SpaDES/modules")
+df_inputs <- SpaDES.core::moduleInputs("PS", file.path("../../modules"))
 knitr::kable(df_inputs,
   caption = "List of (ref:PS) input objects and their description."
 ) %>%
@@ -82,7 +82,7 @@ Provide a summary of user-visible parameters (Table \@ref(tab:moduleParams-PS))
 
 
 ```{r moduleParams-PS, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
-df_params <- SpaDES.core::moduleParams("PS", "C:/Users/RALAS6/Documents/Repositories/SpaDES/modules")
+df_params <- SpaDES.core::moduleParams("PS", file.path("../../modules"))
 knitr::kable(df_params, caption = "List of (ref:PS) parameters and their description.") %>%
   kableExtra::kable_styling(latex_options = "scale_down", full_width = TRUE)
 ```
@@ -104,7 +104,7 @@ Write what is saved.
 Description of the module outputs (Table \@ref(tab:moduleOutputs-PS)).
 
 ```{r moduleOutputs-PS, echo = FALSE, eval = TRUE, message = FALSE, warning = FALSE}
-df_outputs <- SpaDES.core::moduleOutputs("PS", "C:/Users/RALAS6/Documents/Repositories/SpaDES/modules")
+df_outputs <- SpaDES.core::moduleOutputs("PS", file.path("../../modules"))
 knitr::kable(df_outputs, caption = "List of (ref:PS) outputs and their description.") %>%
   kableExtra::kable_styling(latex_options = "scale_down", full_width = TRUE)
 ```
@@ -120,7 +120,7 @@ Describe any anticipated linkages to other modules, such as modules that supply 
 # Example code to run module
 
 ```{r moduleRun}
-#library("conflicted")
+# library("conflicted")
 library("SpaDES.core")
 
 options(spades.useRequire = FALSE)
@@ -190,7 +190,7 @@ simParams <- list(
     doPredsInitialTime = 1,
     .plotInitialTime = 1,
     .saveInitialTime = 1,
-    nTrees =  10, #5000, #glm number of trees
+    nTrees = 10, # 5000, #glm number of trees
     ageGrouping = 10, # choose age class width
     maxAgeClass = 17, # choose number of age classes
     only1DPS = FALSE, # choose 1DPS or 2DPS
