@@ -1,6 +1,6 @@
 ---
 title: "PS Manual"
-subtitle: "v.`r SpaDES.core::moduleMetadata(module = 'PS', path = '..')$version`"
+subtitle: "v.`r SpaDES.core::moduleMetadata(module = 'PS', path = file.path('../../modules'))$version`"
 date: "Last updated: `r Sys.Date()`"
 output:
   bookdown::html_document2:
@@ -52,7 +52,7 @@ download.file(
 
 #### Authors:
 
-`r paste(as.character(SpaDES.core::moduleMetadata(module = "PS", path = '..')$authors), sep = ', ')`
+`r paste(as.character(SpaDES.core::moduleMetadata(module = "PS", path = file.path("../../modules"))$authors), sep = ', ')`
 <!-- ideally separate authors with new lines, '\n' not working -->
 
 ## Module Overview
