@@ -190,7 +190,7 @@ simParams <- list(
     doPredsInitialTime = 1,
     .plotInitialTime = 1,
     .saveInitialTime = 1,
-    nTrees = 10, # 5000, #glm number of trees
+    nTrees = 10, #5000, #glm number of trees (may want to do it with fewer)
     ageGrouping = 10, # choose age class width
     maxAgeClass = 17, # choose number of age classes
     only1DPS = FALSE, # choose 1DPS or 2DPS
