@@ -117,60 +117,72 @@ Describe any anticipated linkages to other modules, such as modules that supply 
 
 -   provide a way for people to obtain help (e.g., module repository issues page)
 
-# Example of code to run module
+# Example code to run module
 
 ```{r moduleRun}
-library("conflicted")
+#library("conflicted")
 library("SpaDES.core")
 
 options(spades.useRequire = FALSE)
 
-## make a list of directory paths
-inputsDir <- checkPath("../../inputs", create = TRUE)
-outputsDir <- checkPath("../../outputs", create = TRUE)
-downloadFolderArea <- checkPath(file.path(inputsDir, "studyArea/CH1PiecewiseSmoothing/studyArea_AB_BCR6"), create = TRUE)
-downloadFolderForestClass <- checkPath(file.path(inputsDir, "forestClassRasters"), create = TRUE)
-downloadFolderBird <- checkPath(file.path(inputsDir, "birdRasterFiles"), create = TRUE)
-outputFolderBirdPreds <- checkPath(file.path(outputsDir, "outputBirdPreds"), create = TRUE)
-outputFolderBirdPredsRasters <- checkPath(file.path(outputsDir, "outputBirdPredsRasters"), create = TRUE)
+## set paths ####
+
+runName <- "17x10YrAgeClasses" # put outputs for each set of age classes/different study area in separate folder
+
 setPaths(
   modulePath = file.path("../../modules"),
   cachePath = file.path("../../cache"),
   scratchPath = file.path("../../scratch"),
-  inputPath = inputsDir,
-  outputPath = outputsDir
+  inputPath = file.path("../../inputs"),
+  outputPath = file.path("../../outputs", runName)
 )
-
 simPaths <- getPaths()
 
+# specify inputs and input paths (to be provided as parameters), and download example input files ####
 
-# parameters from local
-birdList <- sort(c("CAWA", "OVEN"))
-# AB study Area bird list (25% prob of occurrence in 1% of the area)
-# birdList <- sort(c("ALFL", "AMGO", "AMRO", "BARS", "BBWA", "BCCH", "BHCO", "BOCH",
-#                    "BRBL", "BRCR", "CCSP", "CEDW", "CHSP", "CLSW", "CMWA", "COYE",
-#                    "DEJU", "GCKI", "GRAJ", "HETH", "HOWR", "LEFL", "MOWA", "OVEN",
-#                    "PAWA", "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"))
+# studyArea
+locationStudyArea <- checkPath(file.path(Paths$inputPath, "studyArea"), create = TRUE)
+.studyAreaName <- "studyArea_AB_BCR6.shp"
+zen4R::download_zenodo(doi = "10.5281/zenodo.17409820", path = locationStudyArea)
+unzip(file.path(locationStudyArea, paste(tools::file_path_sans_ext(.studyAreaName), ".zip", sep = "")), exdir = locationStudyArea)
+locationStudyArea <- file.path(Paths$inputPath, "studyArea", tools::file_path_sans_ext(.studyAreaName))
 
-rasterToMatchLocation <- inputsDir
-rasterToMatchName <- "LCC2005_V1_4a.tif"
-studyAreaLocation <- downloadFolderArea
+# landscape rasters
+locationLandscapeRasters <- checkPath(file.path(Paths$inputPath, "landscapeRasters"), create = TRUE)
+zen4R::download_zenodo(doi = "10.5281/zenodo.17410019", path = locationLandscapeRasters)
+unzip(file.path(locationLandscapeRasters, "landscapeRasters.zip"), exdir = locationLandscapeRasters)
+
+nameForClassRas <- "vegTypesRas_AB_BCR6_2011"
+locationForClass <- locationLandscapeRasters
+
+nameLandClassRas <- "landCoverRas_AB_BCR6_2010"
+locationLandClass <- locationLandscapeRasters
+
+nameAgeRas <- "ageRas_AB_BCR6_2011"
+locationAge <- locationLandscapeRasters
+
+# species rasters
+locationSpRas <- checkPath(file.path(Paths$inputPath), create = TRUE)
+zen4R::download_zenodo(doi = "10.5281/zenodo.17516504", path = locationSpRas)
+unzip(file.path(locationSpRas, "meanSpRasters.zip"), exdir = locationSpRas)
+locationSpRas <- file.path(Paths$inputPath, "meanSpRasters")
+
+
+# specify rasterToMatch - this can be any raster that covers the whole study area at the desired resolution
+locationRasterToMatch <- locationLandscapeRasters # here I use the landCoverRas
+rasterToMatchName <- nameLandClassRas
+
+# specify BCR (to be provided as parameter)
 nameBCR <- "60"
 
-.studyAreaName <- "studyArea_AB_BCR6.shp"
+# provide species list (to be provided as parameter) ####
+spList <- sort(c(
+  "ALFL", "BBWA", "BCCH", "BOCH", "BRCR", "CMWA", "COYE",
+  "DEJU", "GCKI", "GRAJ", "LEFL", "MOWA", "OVEN", "PAWA",
+  "RBNU", "RCKI", "REVI", "SWTH", "TEWA", "YRWA"
+))
 
-nameForClassRaster <- "vegTypesRas_AB_BCR6_2011"
-folderUrlForClass <- downloadFolderForestClass
-
-nameLandClassRaster <- "landCoverRas_AB_BCR6_2010"
-folderUrlLandClass <- downloadFolderForestClass
-
-nameAgeRaster <- "ageRas_AB_BCR6_2011"
-folderUrlAge <- downloadFolderForestClass
-folderUrlBirdRaster <- downloadFolderBird
-
-
-## Set simulation and module parameters
+# set simulation and module parameters ####
 simModules <- list("PS")
 simTimes <- list(start = 1, end = 1, timeunit = "year")
 simParams <- list(
@@ -178,31 +190,35 @@ simParams <- list(
     doPredsInitialTime = 1,
     .plotInitialTime = 1,
     .saveInitialTime = 1,
-    classOnly = FALSE,
-    nTrees = 5000,
-    ageGrouping = 20,
-    maxAgeClass = 10,
-    birdList = birdList,
-    .studyAreaName = .studyAreaName,
-    rasterToMatchLocation = rasterToMatchLocation,
-    rasterToMatchName = rasterToMatchName,
-    studyAreaLocation = studyAreaLocation,
+    nTrees =  10, #5000, #glm number of trees
+    ageGrouping = 10, # choose age class width
+    maxAgeClass = 17, # choose number of age classes
+    only1DPS = FALSE, # choose 1DPS or 2DPS
+    spList = spList, # species to include in analysis
     nameBCR = nameBCR,
-    nameForClassRaster = nameForClassRaster,
-    folderUrlForClass = folderUrlForClass,
-    nameLandClassRaster = nameLandClassRaster,
-    folderUrlLandClass = folderUrlLandClass,
-    nameAgeRaster = nameAgeRaster,
-    folderUrlAge = folderUrlAge
+    studyAreaLocation = locationStudyArea, # specify folder containing the study area .shp file
+    .studyAreaName = .studyAreaName, # specify name of the study area .shp file
+    rasterToMatchLocation = locationRasterToMatch, # specify folder containing the rasterToMatch
+    rasterToMatchName = rasterToMatchName, # specify name of the raster to match
+    nameForClassRas = nameForClassRas, # specify name of the forest class raster
+    locationForClass = locationForClass, # specify folder containing the forest class raster
+    nameLandClassRas = nameLandClassRas, # specify name of the land class raster file
+    locationLandClass = locationLandClass, # specify folder containing the land Class Raster
+    nameAgeRas = nameAgeRas, # specify name of the age raster
+    locationAge = locationAge, # specify folder containing the age Raster
+    locationSpRas = locationSpRas # specify folder containing the species density rasters
   )
 )
 
 
-## Simulation setup
+# simulation setup ####
 mySim <- simInit(
-  times = simTimes, params = simParams,
-  modules = simModules, paths = simPaths
+  times = simTimes,
+  params = simParams,
+  modules = simModules,
+  paths = simPaths
 )
 
+# run simulation ####
 test <- spades(mySim)
 ```
