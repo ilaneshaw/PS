@@ -120,7 +120,7 @@ Describe any anticipated linkages to other modules, such as modules that supply 
 # Example code to run module
 
 ```{r moduleRun}
-# library("conflicted")
+# install.packages("SpaDES.core")
 library("SpaDES.core")
 
 options(spades.useRequire = FALSE)
@@ -190,14 +190,14 @@ simParams <- list(
     doPredsInitialTime = 1,
     .plotInitialTime = 1,
     .saveInitialTime = 1,
-    nTrees = 10, #5000, #glm number of trees (may want to do it with fewer)
+    nTrees = 10, # 5000, #glm number of trees (may want to do it with fewer)
     ageGrouping = 10, # choose age class width
     maxAgeClass = 17, # choose number of age classes
     only1DPS = FALSE, # choose 1DPS or 2DPS
     spList = spList, # species to include in analysis
     nameBCR = nameBCR,
     studyAreaLocation = locationStudyArea, # specify folder containing the study area .shp file
-    .studyAreaName = .studyAreaName, # specify name of the study area .shp file
+    .studyAreaName = .studyAreaName, # specify name of the study area .shp
     rasterToMatchLocation = locationRasterToMatch, # specify folder containing the rasterToMatch
     rasterToMatchName = rasterToMatchName, # specify name of the raster to match
     nameForClassRas = nameForClassRas, # specify name of the forest class raster
