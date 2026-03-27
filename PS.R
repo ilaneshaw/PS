@@ -776,17 +776,7 @@ do2DPreds <- function(sim) {
       i.var = c("forClass", "age"),
       n.trees = P(sim)$nTrees
     )
-    # print(FriedmansHStat)
-
-    ### Check gbm plot
-    plotGBM <- gbm::plot.gbm(gbmFitted,
-      i.var = c(1, 2),
-      main = sp,
-      xlab = "Forest Age (yrs)",
-      ylab = "Sp Density"
-    )
-    plotGBM
-
+   
     ### make into single stats object
     relInfForClass <- relInfGBM[relInfGBM$var == "forClass", ]
     relInfForClass <- relInfForClass$rel.inf
