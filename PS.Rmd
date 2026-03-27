@@ -134,7 +134,7 @@ setPaths(
   cachePath = file.path("../../cache"),
   scratchPath = file.path("../../scratch"),
   inputPath = file.path("../../inputs"),
-  outputPath = file.path("../../outputs", runName)
+  outputPath = file.path("../../outputs", "PS", runName)
 )
 simPaths <- getPaths()
 

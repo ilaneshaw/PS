@@ -10,9 +10,6 @@
 # do not ignore the following Rmd and R files
 !PS.Rmd
 !PS.R
-!runPS.R
-!makeLandCoverClassRaster.R
-
 
 # do not ignore the readme, citation and licence
 !README.md
