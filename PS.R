@@ -997,7 +997,7 @@ map2D <- function(sim) {
     names(raster) <- paste(sp)
     terra::writeRaster(
       x = raster,
-      filename = file.path(sim$outputRasLocation, paste(sp, "-for2DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, paste(sp, "_for2DAndLc1DMap", sep = "")),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
