@@ -535,7 +535,7 @@ do1DPreds <- function(sim) {
     spDataset$studyArea <- rep(P(sim)$.studyAreaName, nrowCV)
 
     ### save dataset
-    fileName <- paste(P(sim)$.studyAreaName, "_", sp, "_fullDataset.csv", sep = "")
+    fileName <- paste(sp, "_fullDataset.csv", sep = "")
     write.csv(spDataset, file = file.path(sim$outputPredsLocation, fileName))
 
     print(paste(sp, " dataset complete"))
@@ -595,7 +595,7 @@ do1DPreds <- function(sim) {
     print(spStats)
 
     ### save
-    fileName <- paste(P(sim)$.studyAreaName, "_", sp, "_spPreds1D.csv", sep = "")
+    fileName <- paste(sp, "_spPreds1D.csv", sep = "")
     write.csv(spStats, file = file.path(sim$outputPredsLocation, fileName))
 
     return(spStats)
@@ -715,7 +715,7 @@ map1D <- function(sim) {
     names(raster) <- paste(sp)
     terra::writeRaster(
       x = raster,
-      filename = file.path(sim$outputRasLocation, paste(P(sim)$.studyAreaName, "_", sp, "_for1DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, paste(sp, "_for1DAndLc1DMap", sep = "")),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
@@ -856,7 +856,7 @@ do2DPreds <- function(sim) {
     print(spMatrix)
 
     ### Save
-    matrixName <- paste(P(sim)$.studyAreaName, "_", sp, "_spPreds2D.csv", sep = "")
+    matrixName <- paste(sp, "_spPreds2D.csv", sep = "")
     write.csv(spMatrix, file = file.path(sim$outputPredsLocation, matrixName))
 
     matrixAndSummary <- list(spMatrix, statsGBM)
@@ -874,7 +874,7 @@ do2DPreds <- function(sim) {
     print(sp)
 
     spMatrix <- eval(parse(text = paste("spGBM$", sp, "$spMatricies", sep = "")))
-    matrixName <- paste(P(sim)$.studyAreaName, "_", sp, "_matrix.csv", sep = "")
+    matrixName <- paste(sp, "_matrix.csv", sep = "")
 
     ### Save
     write.csv(spMatrix, file = file.path(sim$outputPredsLocation, matrixName))
@@ -895,8 +895,7 @@ do2DPreds <- function(sim) {
   sim$statsGBM <- rbindlist(statsList)
 
   # save
-  write.csv(sim$statsGBM, file = file.path(sim$outputPredsLocation, paste(P(sim)$.studyAreaName, "_statsGBM.csv", sep = "")))
-
+  write.csv(sim$statsGBM, file = file.path(sim$outputPredsLocation, "statsGBM.csv"))
 
   ## Make table defining age classes ####
   ageClassDefs <- as.data.table(cbind(sim$allAges, sim$ageClasses)) # makes data table that in one column has every age from 0 to max age (or max age class age if bigger), and the corresponding age class in the second column
@@ -904,7 +903,7 @@ do2DPreds <- function(sim) {
   # ageClassDefs <- as.data.table(ageClassDefs)
   sim$ageClassDefs <- ageClassDefs[, ageClasses := as.character(ageClasses)]
   ### save
-  write.csv(sim$ageClassDefs, file = file.path(sim$outputPredsLocation, paste(P(sim)$.studyAreaName, "_ageClassDefs", sep = "")))
+  write.csv(sim$ageClassDefs, file = file.path(sim$outputPredsLocation, "ageClassDefs"))
 
 
   ### Make list of objects for examinePS module
@@ -1008,7 +1007,7 @@ map2D <- function(sim) {
     names(raster) <- paste(sp)
     terra::writeRaster(
       x = raster,
-      filename = file.path(sim$outputRasLocation, paste(P(sim)$.studyAreaName, "_", sp, "-for2DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, paste(sp, "-for2DAndLc1DMap", sep = "")),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
