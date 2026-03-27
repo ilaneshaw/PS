@@ -553,7 +553,7 @@ do1DPreds <- function(sim) {
     singleSpDataset <- as.data.table(singleSpDataset)
 
     spStats <- singleSpDataset[
-      order(
+      base::order(
         FoLRaster,
         landForClass
       ) # order the rows by the cover class
@@ -757,7 +757,7 @@ do2DPreds <- function(sim) {
       data = forestedDT,
       interaction.depth = 2,
       n.trees = P(sim)$nTrees,
-      # verbose = TRUE,
+      #verbose = TRUE,
       shrinkage = 0.3,
       n.minobsinnode = 5,
       bag.fraction = .80,
@@ -767,9 +767,9 @@ do2DPreds <- function(sim) {
     ## Get gbm stats ####
 
     ### Get relInf
+    plot.new()
     relInfGBM <- summary(gbmFitted)
-    relInfGBM
-
+   
     ### Get H-stat
     FriedmansHStat <- gbm::interact.gbm(gbmFitted,
       data = forestedDT,
