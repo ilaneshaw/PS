@@ -23,5 +23,5 @@ abstract: >-
   categorical models of bird density for a given study area
   using existing rasters of predicted bird density. 
 license: GPL-3.0-or-later
-version: 1.0.0
-date-released: '2025-03-04'
+version: 1.0.1
+date-released: '2026-04-07'
