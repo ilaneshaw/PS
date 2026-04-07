@@ -3,7 +3,9 @@
 
 cff-version: 1.2.0
 title: PS
-message: "If you use this software, please cite it as below."
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
 type: software
 authors:
   - given-names: Isolde
@@ -14,12 +16,9 @@ authors:
 identifiers:
   - type: doi
     value: 10.5281/zenodo.14968799
-repository-code: 'https://github.com/ilaneshaw/PS'
+repository-code: 'https://github.com/ilaneshaw/examinePS'
 abstract: >-
-  SpaDES module for piecewise smoothing. Piecewise smoothing
-  provides a method of rapidly producing and assessing
-  categorical models of species density for a given study area
-  using existing rasters of predicted species density. 
+  A SpaDES module providing futher analysis of piecewise smoothing (PS) results 
 license: GPL-3.0-or-later
-version: v1.0.3
-date-released: 2026-04-07
+version: 1.0.3
+date-released: '2026-04-07'
