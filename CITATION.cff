@@ -6,7 +6,7 @@ authors:
   orcid: https://orcid.org/0000-0002-7241-4216
 identifiers:
   - type: doi
-    value: https://doi.org/10.5281/zenodo.14968798
+    value: https://doi.org/10.5281/zenodo.19456974
 repository-code: 'https://github.com/ilaneshaw/PS'
 title: PS
 version: v1.0.5
