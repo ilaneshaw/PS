@@ -1,0 +1,24 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: PS
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Isolde
+    family-names: Lane-Shaw
+    email: RALAS6@ulaval.ca
+    affiliation: Université Laval
+    orcid: 'https://orcid.org/0000-0002-7241-4216'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19461937
+repository-code: 'https://github.com/ilaneshaw/examinePS'
+abstract: >-
+  SpaDES module for piecewise smoothing. Piecewise smoothing provides a method of rapidly producing and assessing categorical models of species density for a given study area using existing rasters of predicted species density.  
+license: GPL-3.0-or-later
+version: 1.0.6
+date-released: '2026-04-07'
