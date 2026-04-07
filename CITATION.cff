@@ -20,5 +20,5 @@ repository-code: 'https://github.com/ilaneshaw/PS'
 abstract: >-
   A SpaDES module providing futher analysis of piecewise smoothing (PS) results 
 license: GPL-3.0-or-later
-version: 1.0.3
+version: 1.0.4
 date-released: '2026-04-07'
