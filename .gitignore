@@ -16,11 +16,13 @@
 !CITATION.cff
 !LICENSE
 !COPYING.txt
+!NEWS.md
 
 # do not ignore the following folders
 !/R
 !/data
 !/tests
+!/citations
 
 
 
