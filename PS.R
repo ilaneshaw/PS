@@ -17,7 +17,7 @@ defineModule(sim, list(
   documentation = list("README.md", "PS.Rmd"), ## same file
   reqdPkgs = list(
     "PredictiveEcology/SpaDES.core@development", "ggplot2", "sf", "data.table", "terra",
-    "LandR", "plotrix", "ggplot2", "ggpubr", "diptest", "nortest", "dplyr", "tidyr", "reshape2"
+    "LandR", "plotrix", "gbm", "ggplot2", "ggpubr", "diptest", "nortest", "dplyr", "tidyr", "reshape2"
   ),
   parameters = bindrows(
     # defineParameter("paramName", "paramClass", value, min, max, "parameter description"),
@@ -59,7 +59,11 @@ defineModule(sim, list(
       "do smoothing by cover class only (1D)? if FALSE smoothing will be done by forest type and age class where possible"
     ),
     defineParameter(
-      "nTrees", "numeric", 5000, NA, NA,
+      "incWeights", "logical", FALSE, NA, NA,
+      "number of trees for gbm to build"
+    ),
+    defineParameter(
+      "nTrees", "numeric", 10000, NA, NA,
       "number of trees for gbm to build"
     ),
     defineParameter(
@@ -594,6 +598,21 @@ do1DPreds <- function(sim) {
 
     print(spStats)
 
+# throw warnings over small class counts
+spStatsFor <- spStats[spStats$FoLRaster == "forClass"]
+    if(any(spStatsFor$classCount < 50)){
+      warning("One or more forest class counts low. 2D smoothing may fail. Consider merging/dropping classes.",
+              call. = FALSE, immediate. = TRUE)
+    }
+
+spStatsLand <- spStats[spStats$FoLRaster == "landClass"]
+if(any(spStatsLand$classCount < 10)){
+  warning("One or more land class counts low. 1D smoothing likely less accurate. Consider merging/dropping classes.",
+          call. = FALSE, immediate. = TRUE)
+}
+
+
+    
     ### save
     fileName <- paste(sp, "_spPreds1D.csv", sep = "")
     write.csv(spStats, file = file.path(sim$outputPredsLocation, fileName))
@@ -739,7 +758,7 @@ do2DPreds <- function(sim) {
     print(sp)
     spDT <- as.data.table(spDF)
 
-    ## Separate rows with forest data ####
+    ## Separate rows with forest data ----
     forestedDT <- spDT[FoLRaster == "forClass"]
     forestedDT <- forestedDT[, c("spDensity", "forClass", "age")]
     forestedDT$forClass <- as.factor(forestedDT$forClass)
@@ -748,23 +767,70 @@ do2DPreds <- function(sim) {
 
     ### Remove age NAs
     forestedDT <- na.omit(forestedDT, cols = "age")
+    
 
-    ## Fit gbm ####
-    print("fit gbm")
+    ## Tune Hyperparameters ----
+    print("tune hyperparameters")
+    
+    ### create hyperparameter grid
+    hpGrid <- expand.grid(
+      shrinkage = c(0.005, 0.01),
+      interaction.depth = c(1, 2),
+      n.minobsinnode = c(5, 10, 15, 30),
+      bag.fraction = c(0.5, .65, .8), 
+      optimalTrees = 0,
+      minRMSE = 0
+    )
+    
+    ### randomize data
+    set.seed(73849)
+    random_index <- sample(1:nrow(forestedDT), nrow(forestedDT))
+    randomizedDT <- forestedDT[random_index, ]
+    
+    ### trial each hyperparameter combination
+    for(i in 1:nrow(hpGrid)) {
+      
+      # trial models
+      set.seed(73849)
+      gbmTuned <- gbm::gbm(
+        formula = spDensity ~ .,
+        distribution = "gaussian",
+        data = randomizedDT,
+        n.trees = P(sim)$nTrees,
+        interaction.depth = hpGrid$interaction.depth[i],
+        shrinkage = hpGrid$shrinkage[i],
+        n.minobsinnode = hpGrid$n.minobsinnode[i],
+        bag.fraction = hpGrid$bag.fraction[i],
+        train.fraction = .8,
+        verbose = FALSE
+      )
+      
+      # add min training error and trees to grid
+      hpGrid$optimalTrees[i] <- which.min(gbmTuned$valid.error)
+      hpGrid$minRMSE[i] <- sqrt(min(gbmTuned$valid.error))
+    }
+    
+    hpGrid <- as.data.table(hpGrid)
+    setorder(hpGrid, minRMSE)
+    print(hpGrid)
+    
+    ## fit tuned GBM  ----
+    set.seed(73849)
     gbmFitted <- gbm::gbm(
       formula = spDensity ~ .,
       distribution = "gaussian",
       data = forestedDT,
-      interaction.depth = 2,
-      n.trees = P(sim)$nTrees,
-      #verbose = TRUE,
-      shrinkage = 0.3,
-      n.minobsinnode = 5,
-      bag.fraction = .80,
-      train.fraction = 1
-    ) # same number of trees as used in predict.gbm
+      n.trees = round(hpGrid$optimalTrees[1]*1.2),
+      interaction.depth = hpGrid$interaction.depth[1],
+      shrinkage = hpGrid$shrinkage[1],
+      n.minobsinnode = hpGrid$n.minobsinnode[1],
+      bag.fraction = hpGrid$bag.fraction[1], 
+      train.fraction = 1,
+      cv.folds = 5,
+      verbose = FALSE
+    )  
 
-    ## Get gbm stats ####
+    ## Get gbm stats ----
 
     ### Get relInf
     plot.new()
@@ -805,12 +871,13 @@ do2DPreds <- function(sim) {
     gbmPred <- gbm::predict.gbm(
       object = gbmFitted,
       newdata = spPredictDT,
-      n.trees = P(sim)$nTrees,
+      n.trees = round(hpGrid$optimalTrees[1]*1.2),
       type = "link",
       single.tree = FALSE
     )
 
-    ## Aggregate predictions by age class ####
+    
+  ## Aggregate predictions by age class ####
     noAgeClasses <- sim$maxAge / P(sim)$ageGrouping # get the number of age classes if the max age was simply divided by the age Grouping
     ageClasses <- ifelse(noAgeClasses < P(sim)$maxAgeClass, ageClasses <- P(sim)$maxAgeClass, ageClasses <- noAgeClasses)
     ageClasses <- rep(1:ageClasses, each = P(sim)$ageGrouping)
