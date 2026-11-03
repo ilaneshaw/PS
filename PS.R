@@ -42,11 +42,11 @@ defineModule(sim, list(
       "Describes the simulation time interval between plot events."
     ),
     defineParameter(
-      ".saveInitialTime", "numeric", NA, NA, NA,
+      ".saveInitialTime", "numeric", start(sim), NA, NA,
       "Describes the simulation time at which the first save event should occur."
     ),
     defineParameter(
-      ".saveInterval", "numeric", 1, NA, NA,
+      ".saveInterval", "numeric", NA, NA, NA,
       "This describes the simulation time interval between save events."
     ),
     defineParameter(
@@ -63,7 +63,7 @@ defineModule(sim, list(
       "number of trees for gbm to build"
     ),
     defineParameter(
-      "nTrees", "numeric", 10000, NA, NA,
+      "nTrees", "numeric", 20000, NA, NA,
       "number of trees for gbm to build"
     ),
     defineParameter(
@@ -89,10 +89,6 @@ defineModule(sim, list(
     defineParameter(
       "studyAreaLocation", "character", NA, NA, NA,
       "the file location of the studyArea"
-    ),
-    defineParameter(
-      "nameBCR", "character", NA, NA, NA,
-      "the BAM regional model BCR region that the studyArea is located in"
     ),
     defineParameter(
       "nameForClassRas", "character", NA, NA, NA,
@@ -129,10 +125,14 @@ defineModule(sim, list(
     defineParameter(
       "archiveAge", "character", NA, NA, NA,
       "the zip file the age raster is located in"
-    ),
+    ), 
     defineParameter(
       "locationSpRas", "character", NA, NA, NA,
       "the location of the sp density rasters"
+    ),
+    defineParameter(
+      "locationWtRas", "character", NA, NA, NA,
+      "the location of the weight rasters"
     ),
     ## .seed is optional: `list('init' = 123)` will `set.seed(123)` for the `init` event only.
     defineParameter(
@@ -148,6 +148,7 @@ defineModule(sim, list(
     # expectsInput("objectName", "objectClass", "input object description", sourceURL, ...),
     expectsInput("rasterToMatch", "SpatRaster", desc = "A raster used to determine projection of other spatial objects. Must cover all of the region covered by the studyArea"),
     expectsInput("studyArea", "SpatVector", desc = "Polygon to use as the study area."),
+    expectsInput(objectName = "spList", objectClass = "character", desc = NA, sourceURL = NA),
     expectsInput(objectName = "forClassRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
     expectsInput(objectName = "landClassRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
     expectsInput(objectName = "ageRas", objectClass = "SpatRaster", desc = NA, sourceURL = NA),
@@ -463,6 +464,16 @@ do1DPreds <- function(sim) {
   # Make sp datasets ####
   sim$spDatasets <- lapply(X = sim$spList, FUN = function(sp) {
     spLayer <- sim$spRasters[[sp]]
+   
+    #specify weights raster to use
+    if (P(sim)$incWeights == TRUE) {
+      wtLayer <- sim$wtRasters[[sp]]
+    }else{
+      #if incWeights = FALSE make all weights values 1
+    wtLayer <- spLayer 
+    values(wtLayer) <- 1
+    }
+      
     if (P(sim)$only1DPS == FALSE) {
       ## 2DPS datasets ####
 
@@ -471,7 +482,8 @@ do1DPreds <- function(sim) {
         spLayer,
         sim$forClassRas,
         sim$landClassRas,
-        sim$ageRas
+        sim$ageRas,
+        wtLayer
       )
       print(landSpRasters)
 
@@ -481,7 +493,8 @@ do1DPreds <- function(sim) {
         "spDensity",
         "forClass",
         "landClass",
-        "age"
+        "age",
+        "weight"
       ))
     } else {
       ## 1DPS datasets ####
@@ -490,7 +503,8 @@ do1DPreds <- function(sim) {
       landSpRasters <- c(
         spLayer,
         sim$forClassRas,
-        sim$landClassRas
+        sim$landClassRas,
+        wtLayer
       )
       print(landSpRasters)
       ### input raster values to data table
@@ -498,7 +512,8 @@ do1DPreds <- function(sim) {
       spDataset <- setnames(spDataset, c(
         "spDensity",
         "forClass",
-        "landClass"
+        "landClass",
+        "weight"
       ))
     }
 
@@ -520,6 +535,7 @@ do1DPreds <- function(sim) {
     spDataset$FoLRaster <- as.factor(spDataset$FoLRaster)
     spDataset$age <- as.integer(spDataset$age)
     spDataset$spDensity <- as.numeric(spDataset$spDensity)
+    spDataset$weight <- as.numeric(spDataset$weight)
 
 
     ### make column giving the land or forest class for each row.
@@ -769,14 +785,14 @@ do2DPreds <- function(sim) {
     forestedDT <- na.omit(forestedDT, cols = "age")
     
 
-    ## Tune Hyperparameters ----
+    ## Tune hyperparameters ----
     print("tune hyperparameters")
     
     ### create hyperparameter grid
     hpGrid <- expand.grid(
-      shrinkage = c(0.005, 0.01),
+      shrinkage = c(0.005, 0.01, 0.1),
       interaction.depth = c(1, 2),
-      n.minobsinnode = c(5, 10, 15, 30),
+      n.minobsinnode = c(5, 10, 30),
       bag.fraction = c(0.5, .65, .8), 
       optimalTrees = 0,
       minRMSE = 0
@@ -793,8 +809,9 @@ do2DPreds <- function(sim) {
       # trial models
       set.seed(73849)
       gbmTuned <- gbm::gbm(
-        formula = spDensity ~ .,
+        formula = spDensity ~ age + forClass,
         distribution = "gaussian",
+        #weights = weight,
         data = randomizedDT,
         n.trees = P(sim)$nTrees,
         interaction.depth = hpGrid$interaction.depth[i],
@@ -817,8 +834,9 @@ do2DPreds <- function(sim) {
     ## fit tuned GBM  ----
     set.seed(73849)
     gbmFitted <- gbm::gbm(
-      formula = spDensity ~ .,
+      formula = spDensity ~ age + forClass,
       distribution = "gaussian",
+      #weights = weight,
       data = forestedDT,
       n.trees = round(hpGrid$optimalTrees[1]*1.2),
       interaction.depth = hpGrid$interaction.depth[1],
@@ -940,7 +958,7 @@ do2DPreds <- function(sim) {
   })
 
   names(sim$spMatricies) <- sim$spList
-
+ 
   ####  GBM Stats
   print("make table of GBM stats")
   statsList <- lapply(X = sim$spList, FUN = function(sp) {
@@ -1102,6 +1120,7 @@ map2D <- function(sim) {
   if (!suppliedElsewhere("rasterToMatch", sim)) {
     print("get rasterToMatch from local drive")
     sim$rasterToMatch <- terra::rast(file.path(P(sim)$rasterToMatchLocation, P(sim)$rasterToMatchName))
+    terra::values(sim$rasterToMatch) <- 1
     names(sim$rasterToMatch) <- "rasterToMatch"
   }
 
@@ -1120,11 +1139,12 @@ map2D <- function(sim) {
   }
 
   # crop and mask rasterToMatch to studyArea
-  sim$rasterToMatch <- reproducible::Cache(terra::crop, sim$rasterToMatch, sim$studyArea)
-  sim$rasterToMatch <- reproducible::Cache(terra::mask, sim$rasterToMatch, sim$studyArea)
+ # sim$rasterToMatch <- reproducible::Cache(terra::crop, sim$rasterToMatch, sim$studyArea)
+  #sim$rasterToMatch <- reproducible::Cache(terra::mask, sim$rasterToMatch, sim$studyArea)
 
   # Get forest class raster ####
   if (!suppliedElsewhere("forClassRas", sim)) {
+  
     print("get forClassRas")
     sim$forClassRas <- terra::rast(file.path(P(sim)$locationForClass, P(sim)$nameForClassRas))
     names(sim$forClassRas) <- c("forClassRas")
@@ -1186,27 +1206,32 @@ map2D <- function(sim) {
     }
   }
 
-
+  # spList ----
+  if (!suppliedElsewhere("spList", sim)) {
+    sim$spList <- sort(unique(P(sim)$spList))
+  }
+  print(".inputObjects: spList") 
+  print(sim$spList)
+  
+  
   # Get sp density rasters ####
   if (!suppliedElsewhere("spRasters", sim)) {
-    sim$spList <- sort(sim$spList)
-
+   
     # list all species rasters in locationSpRas
     namesAllSpRast <- list.files(path = P(sim)$locationSpRas, full.names = FALSE)
 
     ## input the raster for each species in the spList one by one
-    sim$spRasters <- lapply(X = P(sim)$spList, FUN = function(sp) {
+    sim$spRasters <- lapply(X = sim$spList, FUN = function(sp) {
       print(sp)
       tryCatch(
         {
-          # sp <- paste(sp, ".tif", sep = "")
-
+          
           spRas <- namesAllSpRast[grep(sp, basename(namesAllSpRast))]
 
           if (length(spRas) == 0) {
-            print(paste("No file found in namesAllSpRast for ", sp, sep = ""))
+            warning(paste("No file found in namesAllSpRast for ", sp, sep = ""))
           } else if (length(spRas) > 1) {
-            print(paste("Multiple files matched ", sp,
+            warning(paste("Multiple files matched ", sp,
               ":", spRas,
               sep = ""
             ))
@@ -1233,22 +1258,90 @@ map2D <- function(sim) {
       )
     })
 
-    names(sim$spRasters) <- P(sim)$spList
+    names(sim$spRasters) <- sim$spList
+    
+    # Remove any NAs in the spRasters List ####
+    naSp <- is.na(sim$spRasters)
+    if (any(naSp)) {
+      warning(paste(
+        "no rasters for the following species:",
+        paste(names(sim$spRasters)[naSp], collapse = ", ")
+      ))
+    }
+    
+    sim$spRasters <- sim$spRasters[!naSp]
+    
+    # change the spList to reflect only present species rasters (updated from the spList parameter)
+    sim$spList <- names(sim$spRasters)
   }
 
-
-  # Remove any NAs in the spRasters List ####
-  naSp <- is.na(sim$spRasters)
-  if (any(naSp)) {
+  
+  # Get weight rasters ####
+  if (P(sim)$incWeights == TRUE) {
+  if (!suppliedElsewhere("wtRasters", sim)) {
+   
+     
+    # list all species rasters in locationSpRas
+    namesAllWtRast <- list.files(path = P(sim)$locationWtRas, full.names = FALSE)
+    
+    ## input the raster for each species in the spList one by one
+    sim$wtRasters <- lapply(X = sim$spList, FUN = function(sp) {
+      print(sp)
+      tryCatch(
+        {
+          # sp <- paste(sp, ".tif", sep = "")
+        
+          wtRas <- namesAllWtRast[grep(sp, basename(namesAllWtRast))]
+          
+          if (length(wtRas) == 0) {
+            print(paste("No weight file found in namesAllSpRast for ", sp, sep = ""))
+          } else if (length(wtRas) > 1) {
+            print(paste("Multiple weight files matched ", sp,
+                        ":", wtRas,
+                        sep = ""
+            ))
+          }
+          
+          wtRas <- terra::rast(file.path(P(sim)$locationWtRas, wtRas))
+          names(wtRas) <- paste(sp, "_wtRas") 
+          
+          # postprocess raster - cropping, masking to the study area and reprojecting to the rasterToMatch
+          wtRas <- reproducible::postProcessTo(
+            from = wtRas,
+            to = sim$rasterToMatch,
+            cropTo = sim$studyArea,
+            maskTo = sim$studyArea,
+            overwrite = FALSE,
+            verbose = TRUE
+          )
+          
+          return(wtRas)
+        },
+        error = function(e) {
+          return(NA)
+        }
+      )
+    })
+    
+    names(sim$wtRasters) <- sim$spList
+  }
+  
+  
+  # Remove any NAs in the wtRasters and the spRasters List ####
+  naWt <- is.na(sim$wtRasters)
+  if (any(naWt)) {
     warning(paste(
-      "no rasters for the following species:",
-      paste(names(sim$spRasters)[naSp], collapse = ", ")
+      "no weight rasters for the following species:",
+      paste(names(sim$wtRasters)[naWt], collapse = ", ")
     ))
   }
-  sim$spRasters <- sim$spRasters[!naSp]
-
+  sim$spRasters <- sim$spRasters[!naWt]
+  sim$wtRasters <- sim$wtRasters[!naWt]
+  
   # change the spList to reflect only present species rasters (updated from the spList parameter)
   sim$spList <- names(sim$spRasters)
+  
+  }  
 
   # Set separate folders for output components ####
   sim$outputPredsLocation <- checkPath(file.path(Paths$outputPath, "PSPreds/"), create = TRUE)
