@@ -60,7 +60,7 @@ defineModule(sim, list(
     ),
     defineParameter(
       "incWeights", "logical", FALSE, NA, NA,
-      "number of trees for gbm to build"
+      "include a raster of precision weights for use in predictions"
     ),
     defineParameter(
       "nTrees", "numeric", 20000, NA, NA,
