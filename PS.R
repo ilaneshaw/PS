@@ -17,7 +17,8 @@ defineModule(sim, list(
   documentation = list("README.md", "PS.Rmd"), ## same file
   reqdPkgs = list(
     "PredictiveEcology/SpaDES.core@development", "ggplot2", "sf", "data.table", "terra",
-    "LandR", "plotrix", "gbm", "ggplot2", "ggpubr", "diptest", "nortest", "dplyr", "tidyr", "reshape2"
+    "LandR", "plotrix", "gbm", "ggplot2", "ggpubr", "diptest", "nortest", "dplyr", "tidyr", 
+    "reshape2", "parallel", "foreach"
   ),
   parameters = bindrows(
     # defineParameter("paramName", "paramClass", value, min, max, "parameter description"),
@@ -133,6 +134,10 @@ defineModule(sim, list(
     defineParameter(
       "locationWtRas", "character", NA, NA, NA,
       "the location of the weight rasters"
+    ),
+    defineParameter(
+      "parallelOption", "logical", FALSE, NA, NA,
+      "do parallel for gbm"
     ),
     ## .seed is optional: `list('init' = 123)` will `set.seed(123)` for the `init` event only.
     defineParameter(
@@ -460,7 +465,7 @@ plotFun <- function(sim) {
 ### template for your event1
 do1DPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-
+  sim$spList <- sim$spList[1:4]
   # Make sp datasets ####
   sim$spDatasets <- lapply(X = sim$spList, FUN = function(sp) {
     spLayer <- sim$spRasters[[sp]]
@@ -521,6 +526,13 @@ do1DPreds <- function(sim) {
     spDataset <- as.data.table(spDataset)
     spDataset <- spDataset[!is.na(spDensity)] # get rid of cells with no spDensity data
 
+    #check that weights are given for all rows
+if(any(is.na(spDataset$weight))){
+  warning("weight values missing",
+          call. = TRUE, immediate. = FALSE)
+}
+    
+    
     ### create column saying if value is from forest or land class raster
     spDataset <- spDataset[, FoLRaster := ifelse(!is.na(landClass) & !is.na(forClass), "forClass",
       ifelse(!is.na(landClass), "landClass",
@@ -764,27 +776,76 @@ map1D <- function(sim) {
 
 do2DPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-
-  # Make 2DPS predictions ####
-  spGBM <- lapply(X = sim$spDatasets, FUN = function(spDF) {
-    ### keep track of how long each sp takes
-    print(Sys.time())
-
-    sp <- unique(spDF$species)
-    print(sp)
+  
+   ## spPredictDF ----
+  
+  ## spPredictDT ----
+  ### Separate rows with forest data 
+  exForDT <- sim$spDatasets[[1]]
+  exForDT <- exForDT[FoLRaster == "forClass"]
+  exForDT$age <- as.integer(exForDT$age)
+  exForDT <- na.omit(exForDT, cols = "age")
+  
+  sim$maxAge <- max(exForDT$age) # get age of oldest cell listed in forestedDF
+  sim$maxAgeClassAge <- P(sim)$maxAgeClass * P(sim)$ageGrouping
+  ifelse(sim$maxAge > sim$maxAgeClassAge,
+         sim$allAges <- c(0:sim$maxAge),
+         sim$allAges <- c(0:sim$maxAgeClassAge)
+  ) # make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
+  sim$spPredictDT <- exForDT %>% expand(
+    forClass,
+    sim$allAges
+  ) # make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class.
+  names(sim$spPredictDT) <- c("forClass", "age") # rename the columns
+  
+  ## ageClasses ----
+  sim$noAgeClasses <- sim$maxAge / P(sim)$ageGrouping # get the number of age classes if the max age was simply divided by the age Grouping
+  sim$ageClasses <- ifelse(sim$noAgeClasses < P(sim)$maxAgeClass, ageClasses <- P(sim)$maxAgeClass, ageClasses <- noAgeClasses)
+  sim$ageClasses <- rep(1:sim$ageClasses, each = P(sim)$ageGrouping)
+  sim$ageClasses <- c(1, sim$ageClasses)
+  sim$ageClasses <- sim$ageClasses
+  if (sim$noAgeClasses > P(sim)$maxAgeClass) {
+    ageClassDiff <- sim$noAgeClasses - P(sim)$maxAgeClass
+    extraClasses <- P(sim)$maxAgeClass + (1:ageClassDiff)
+    for (x in extraClasses) {
+      print(x)
+      sim$ageClasses <- replace(sim$ageClasses, sim$ageClasses == x, P(sim)$maxAgeClass)
+    }
+  }
+ 
+ 
+  # singleSp2DPS ---- 
+  singleSp2DPS <- function(sp, 
+                           spDatasets, 
+                           spPredictDT, 
+                           ageClasses, 
+                           nTrees, 
+                           outputPredsLocation){
+   
+    data.table::setDTthreads(1)    # one thread per worker
+  
+    spDF <- spDatasets[[sp]]
+    spFile <- file.path(outputPredsLocation, paste0(make.names(sp), ".rds"))
+    
+    # Skip species already finished in an earlier run
+    if (file.exists(spFile)) {
+      return(readRDS(spFile))
+    }
+    
+    message(format(Sys.time()), "  START  ", sp)
+    
     spDT <- as.data.table(spDF)
-
+    
     ## Separate rows with forest data ----
     forestedDT <- spDT[FoLRaster == "forClass"]
-    forestedDT <- forestedDT[, c("spDensity", "forClass", "age")]
+    forestedDT <- forestedDT[, c("spDensity", "forClass", "age", "weight")]
     forestedDT$forClass <- as.factor(forestedDT$forClass)
     forestedDT$age <- as.integer(forestedDT$age)
     forestedDT <- droplevels(forestedDT)
-
+    
     ### Remove age NAs
     forestedDT <- na.omit(forestedDT, cols = "age")
     
-
     ## Tune hyperparameters ----
     print("tune hyperparameters")
     
@@ -811,17 +872,18 @@ do2DPreds <- function(sim) {
       gbmTuned <- gbm::gbm(
         formula = spDensity ~ age + forClass,
         distribution = "gaussian",
-        #weights = weight,
+        weights = weight,
         data = randomizedDT,
-        n.trees = P(sim)$nTrees,
+        n.trees = nTrees,
         interaction.depth = hpGrid$interaction.depth[i],
         shrinkage = hpGrid$shrinkage[i],
         n.minobsinnode = hpGrid$n.minobsinnode[i],
         bag.fraction = hpGrid$bag.fraction[i],
         train.fraction = .8,
-        verbose = FALSE
+        verbose = FALSE,
+        n.cores = 1
       )
-      
+    
       # add min training error and trees to grid
       hpGrid$optimalTrees[i] <- which.min(gbmTuned$valid.error)
       hpGrid$minRMSE[i] <- sqrt(min(gbmTuned$valid.error))
@@ -836,7 +898,7 @@ do2DPreds <- function(sim) {
     gbmFitted <- gbm::gbm(
       formula = spDensity ~ age + forClass,
       distribution = "gaussian",
-      #weights = weight,
+      weights = weight,
       data = forestedDT,
       n.trees = round(hpGrid$optimalTrees[1]*1.2),
       interaction.depth = hpGrid$interaction.depth[1],
@@ -845,22 +907,25 @@ do2DPreds <- function(sim) {
       bag.fraction = hpGrid$bag.fraction[1], 
       train.fraction = 1,
       cv.folds = 5,
-      verbose = FALSE
+      verbose = FALSE,
+      n.cores = 1
     )  
-
+    
     ## Get gbm stats ----
-
+    plot.new()
+    plot(gbmFitted, main = sp) 
+  
     ### Get relInf
     plot.new()
     relInfGBM <- summary(gbmFitted)
-   
+    
     ### Get H-stat
     FriedmansHStat <- gbm::interact.gbm(gbmFitted,
-      data = forestedDT,
-      i.var = c("forClass", "age"),
-      n.trees = P(sim)$nTrees
+                                        data = forestedDT,
+                                        i.var = c("forClass", "age"),
+                                        n.trees = nTrees
     )
-   
+    
     ### make into single stats object
     relInfForClass <- relInfGBM[relInfGBM$var == "forClass", ]
     relInfForClass <- relInfForClass$rel.inf
@@ -869,20 +934,7 @@ do2DPreds <- function(sim) {
     species <- sp
     statsGBM <- cbind(species, FriedmansHStat, relInfForClass, relInfAge)
     print(statsGBM)
-
-    ## Make prediction df ####
-    sim$maxAge <- max(forestedDT$age) # get age of oldest cell listed in forestedDF
-    sim$maxAgeClassAge <- P(sim)$maxAgeClass * P(sim)$ageGrouping
-    ifelse(sim$maxAge > sim$maxAgeClassAge,
-      sim$allAges <- c(0:sim$maxAge),
-      sim$allAges <- c(0:sim$maxAgeClassAge)
-    ) # make a vector that counts from 0 to the age of the oldest cell, or the max age class age, whichever is bigger
-    spPredictDT <- forestedDT %>% expand(
-      forClass,
-      sim$allAges
-    ) # make a data frame with two columns, landForClass and sim$allAges.The rows cumulatively provide each combination of age and forest class.
-    names(spPredictDT) <- c("forClass", "age") # rename the columns
-
+    
     ## gbm pred ####
     ### This produces a vector of predictions for the variables given by each row in spPredictDF
     print("do gbmPred")
@@ -891,57 +943,105 @@ do2DPreds <- function(sim) {
       newdata = spPredictDT,
       n.trees = round(hpGrid$optimalTrees[1]*1.2),
       type = "link",
-      single.tree = FALSE
+      single.tree = FALSE, 
+      n.cores = 1
     )
-
     
-  ## Aggregate predictions by age class ####
-    noAgeClasses <- sim$maxAge / P(sim)$ageGrouping # get the number of age classes if the max age was simply divided by the age Grouping
-    ageClasses <- ifelse(noAgeClasses < P(sim)$maxAgeClass, ageClasses <- P(sim)$maxAgeClass, ageClasses <- noAgeClasses)
-    ageClasses <- rep(1:ageClasses, each = P(sim)$ageGrouping)
-    ageClasses <- c(1, ageClasses)
-    sim$ageClasses <- ageClasses
-    if (noAgeClasses > P(sim)$maxAgeClass) {
-      ageClassDiff <- noAgeClasses - P(sim)$maxAgeClass
-      extraClasses <- P(sim)$maxAgeClass + (1:ageClassDiff)
-      for (x in extraClasses) {
-        print(x)
-        sim$ageClasses <- replace(sim$ageClasses, sim$ageClasses == x, P(sim)$maxAgeClass)
-      }
-    }
-    ageClasses <- sim$ageClasses
     gbmPredDT <- cbind(spPredictDT, gbmPred, ageClasses)
     gbmPredDT <- as.data.table(gbmPredDT)
     gbmPredDT$landForClass <- as.factor(gbmPredDT$forClass)
     gbmPredDT$ageClasses <- as.factor(gbmPredDT$ageClasses)
     gbmPredDT <- gbmPredDT[, list(gbmPred = mean(gbmPred)),
-      by = list(forClass, ageClasses)
+                           by = list(forClass, ageClasses)
     ]
-
-
+    
+    
     ## Form matrix with forest class as y and age as x ####
     print("form spMatrix")
     spMatrix <- reshape2::acast(gbmPredDT,
-      forClass ~ ageClasses,
-      value.var = "gbmPred"
+                                forClass ~ ageClasses,
+                                value.var = "gbmPred"
     )
-
+    
     ### If any matrix prediction values are negative, make them be 0
     spMatrix[spMatrix < 0] <- 0
     print(spMatrix)
-
+    
     ### Save
     matrixName <- paste(sp, "_spPreds2D.csv", sep = "")
-    write.csv(spMatrix, file = file.path(sim$outputPredsLocation, matrixName))
-
-    matrixAndSummary <- list(spMatrix, statsGBM)
-    names(matrixAndSummary) <- c("spMatricies", "statsGBM")
-
+    write.csv(spMatrix, file = file.path(outputPredsLocation, matrixName))
+    
+    matrixAndSummary <- list(species = sp, spMatricies = spMatrix, statsGBM = statsGBM)
+    saveRDS(matrixAndSummary, spFile)     # saved immediately, so finished work survives a crash
+    
+    message(format(Sys.time()), "  DONE   ", sp)
     return(matrixAndSummary)
-  })
-
-  names(spGBM) <- sim$spList
-
+  }
+ 
+  
+  #run singleSp2DPS ----
+  if(P(sim)$parallelOption == TRUE){
+    ### run parallel ----
+    `%dopar%` <- foreach::`%dopar%`           # alias so the infix operator can be used
+    
+    #get ncores
+    ncores <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", unset = NA))
+    if (is.na(ncores)) {
+      stop("SLURM_CPUS_PER_TASK is not set. Request --cpus-per-task in the job script.")
+    }
+    
+    # --- start workers and register them ---
+    cl <- parallel::makeCluster(ncores, outfile = "")   # outfile = "" shows worker messages in the log
+    doParallel::registerDoParallel(cl)
+    
+    # optional: reproducible random numbers (see note 4)
+    # doRNG::registerDoRNG(seed = 123)
+    
+    # --- the parallel loop ---
+    spGBM <- foreach::foreach(
+      sp           = sim$spList,                  # each element is sent to a worker one at a time
+      .packages      = c("data.table", "gbm"),
+      .export        = c("singleSp2DPS"),
+      .errorhandling = "pass"                           # errors are returned instead of stopping everything
+    ) %dopar% {
+      singleSp2DPS(sp, 
+                   spDatasets = sim$spDatasets, 
+                   spPredictDT = sim$spPredictDT, 
+                   ageClasses = sim$ageClasses,
+                   nTrees = P(sim)$nTrees,
+                   outputPredsLocation = sim$outputPredsLocation)
+    }
+    
+    parallel::stopCluster(cl)
+    
+    names(spGBM) <- sim$spList
+    
+    # --- check for failures ---
+    failed <- vapply(spGBM, function(x) inherits(x, "error"), logical(1))
+    if (any(failed)) {
+      warning("Failed species: ", paste(sim$spList[failed], collapse = ", "))
+      print(spGBM[failed])
+    }
+    
+  }else{
+    ### non-parallel option ----
+    
+   spGBM <- lapply(X = sim$spList, FUN = function(sp) {
+    
+    matrixAndSummary <- singleSp2DPS(sp = sp,
+                                     spDatasets = sim$spDatasets, 
+                                     spPredictDT = sim$spPredictDT, 
+                                     ageClasses = sim$ageClasses,
+                                     nTrees = P(sim)$nTrees,
+                                     outputPredsLocation = sim$outputPredsLocation)
+    
+    return(matrixAndSummary)
+    
+   }) 
+    names(spGBM) <- sim$spList
+    
+    }
+  
   ### Separate matricies from stats ####
   #### Species matricies
   print("separate out matricies")
@@ -1011,7 +1111,7 @@ map2D <- function(sim) {
   print("Make for2DMaps")
   sim$for2DMaps <- lapply(X = sim$spList, FUN = function(sp) {
     print(sp)
-
+browser()
     ### check spatial extent is the same for ageClassraster and forClassraster
     print("extent of forClassRas same as ageClassRas?")
     print(terra::ext(sim$forClassRas) == terra::ext(sim$ageClassRas))
@@ -1023,9 +1123,11 @@ map2D <- function(sim) {
 
     ## Make reclassification tab ####
     matrix <- sim$spPreds$spMatricies[[sp]]
-
+print(matrix)
     reclassTab2D <- reproducible::Cache(reshape2::melt, matrix)
+    print(reclassTab2D)
     colnames(reclassTab2D) <- c("forClass", "ageClass", "spDensityPred")
+    print(reclassTab2D)
     reclassTab2D <- as.data.table(reclassTab2D)
     reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
     reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
@@ -1033,6 +1135,7 @@ map2D <- function(sim) {
 
     ## Convert forClassRas and ageClassRas to data frame ####
     rasDF <- as.data.frame(c(sim$forClassRas, sim$ageClassRas), xy = TRUE)
+    print(rasDF)
     names(rasDF) <- c("x_coord", "y_coord", "forClass", "ageClass")
 
     ### Add densities from reclassTab
