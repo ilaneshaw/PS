@@ -338,123 +338,123 @@ Save <- function(sim) {
 plotFun <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
 
-  clearPlot()
-
-  # Plot input landscape rasters ####
-
-  ## Plot rasterToMatch ####
-  quickPlot::Plot(sim$rasterToMatch, na.color = "blue", title = "rasterToMatch", new = TRUE, legend = TRUE)
-  clearPlot()
-
-  ## Plot landClassRas ####
-  quickPlot::Plot(sim$landClassRas, na.color = "blue", title = "Land Class Raster", new = TRUE, legend = TRUE)
-  clearPlot()
-
-  ## Plot ageRas
-  if (P(sim)$only1DPS == FALSE) {
-    quickPlot::Plot(sim$ageRas, na.color = "blue", title = "Age Raster", new = TRUE, legend = TRUE)
-    clearPlot()
-  }
-
-  ## Plot forClassRas ####
-  quickPlot::Plot(sim$forClassRas, title = "Forest Class Raster", na.color = "blue", new = TRUE, legend = TRUE)
-  clearPlot()
-
-  # Plot 1DPS kernel density plots ####
-  lapply(sim$spList, FUN = function(sp) {
-    spDataset <- sim$spDatasets[[sp]]
-    spDataset$landForClass <- as.factor(spDataset$landForClass)
-    spDataset$species <- as.factor(spDataset$species)
-    spDataset$age <- as.integer(spDataset$age)
-
-    if (requireNamespace("ggplot2")) {
-      kernelDensityPlot <- spDataset |> ggplot2::ggplot(ggplot2::aes(x = spDensity, fill = factor(landForClass))) +
-        geom_density() +
-        facet_wrap(~landForClass,
-          scales = "free_y"
-        ) +
-        theme_classic() +
-        ggtitle(paste("Kernel density plots for ", sp, " by forest or land cover class", sep = "")) +
-        xlab("Predicted sp density") +
-        ylab("Occurence of density value")
-      clearPlot()
-      Plot(kernelDensityPlot, title = NULL)
-    }
-  })
-
-
-  # Plot 1DPS predictions
-  lapply(sim$spList, FUN = function(sp) {
-    spPred <- sim$spPreds1D[[sp]]
-    spPred$landForClass <- as.factor(spPred$landForClass)
-    spPred$FoLRaster <- as.factor(spPred$FoLRaster)
-    spPred$species <- as.factor(spPred$species)
-
-    if (requireNamespace("ggplot2")) {
-      spPred1DPlot <- spPred |> ggplot2::ggplot(ggplot2::aes(
-        x = landForClass,
-        y = meanSpDensity,
-        fill = landForClass
-      )) +
-        geom_bar(stat = "identity") +
-        geom_errorbar(
-          aes(
-            ymin = meanSpDensity - seSpDensity,
-            ymax = meanSpDensity + seSpDensity
-          ),
-          width = .5
-        ) +
-        theme_classic() +
-        ggtitle(paste("Mean density predictions for ", sp, sep = "")) +
-        xlab("Land or Forest Class") +
-        ylab("Mean Predicted Density") +
-        theme(
-          axis.text.x = element_text(angle = 45, hjust = 1),
-          legend.title = element_blank()
-        )
-
-      clearPlot()
-      Plot(spPred1DPlot, title = NULL)
-    }
-  })
-
-  # Plot 2DPS predictions ####
-  if (P(sim)$only1DPS == FALSE) {
-    lapply(sim$spList, FUN = function(sp) {
-      spMatrix <- sim$spPreds$spMatricies[[sp]]
-
-      tab <- reshape2::melt(spMatrix)
-      colnames(tab) <- c("forClass", "ageClass", "spDensityPred")
-      tab$ageClass <- as.factor(tab$ageClass)
-      tab$forClass <- as.factor(tab$forClass)
-      tab$spDensityPred <- as.numeric(tab$spDensityPred)
-
-      if (requireNamespace("ggplot2")) {
-        plot2DPredictions <- tab |> ggplot2::ggplot(ggplot2::aes(
-          fill = forClass,
-          y = spDensityPred,
-          x = ageClass
-        )) +
-          geom_bar(position = "dodge", stat = "identity") +
-          facet_grid(~forClass,
-            scales = "free"
-          ) +
-          theme_classic() +
-          ggtitle(paste("Predicted density by forest and age class for ", sp, sep = "")) +
-          xlab("Forest Age Class") +
-          ylab("Predicted sp density") +
-          theme(
-            strip.background = element_rect(
-              color = "white", fill = "white", linewidth = 1.1
-            ),
-            axis.text.x = element_text(angle = 45, hjust = 1)
-          )
-
-        clearPlot()
-        Plot(plot2DPredictions, title = NULL)
-      }
-    })
-  }
+  # clearPlot()
+  # 
+  # # Plot input landscape rasters ####
+  # 
+  # ## Plot rasterToMatch ####
+  # quickPlot::Plot(sim$rasterToMatch, na.color = "blue", title = "rasterToMatch", new = TRUE, legend = TRUE)
+  # clearPlot()
+  # 
+  # ## Plot landClassRas ####
+  # quickPlot::Plot(sim$landClassRas, na.color = "blue", title = "Land Class Raster", new = TRUE, legend = TRUE)
+  # clearPlot()
+  # 
+  # ## Plot ageRas
+  # if (P(sim)$only1DPS == FALSE) {
+  #   quickPlot::Plot(sim$ageRas, na.color = "blue", title = "Age Raster", new = TRUE, legend = TRUE)
+  #   clearPlot()
+  # }
+  # 
+  # ## Plot forClassRas ####
+  # quickPlot::Plot(sim$forClassRas, title = "Forest Class Raster", na.color = "blue", new = TRUE, legend = TRUE)
+  # clearPlot()
+  # 
+  # # Plot 1DPS kernel density plots ####
+  # lapply(sim$spList, FUN = function(sp) {
+  #   spDataset <- sim$spDatasets[[sp]]
+  #   spDataset$landForClass <- as.factor(spDataset$landForClass)
+  #   spDataset$species <- as.factor(spDataset$species)
+  #   spDataset$age <- as.integer(spDataset$age)
+  # 
+  #   if (requireNamespace("ggplot2")) {
+  #     kernelDensityPlot <- spDataset |> ggplot2::ggplot(ggplot2::aes(x = spDensity, fill = factor(landForClass))) +
+  #       geom_density() +
+  #       facet_wrap(~landForClass,
+  #         scales = "free_y"
+  #       ) +
+  #       theme_classic() +
+  #       ggtitle(paste("Kernel density plots for ", sp, " by forest or land cover class", sep = "")) +
+  #       xlab("Predicted sp density") +
+  #       ylab("Occurence of density value")
+  #     clearPlot()
+  #     Plot(kernelDensityPlot, title = NULL)
+  #   }
+  # })
+  # 
+  # 
+  # # Plot 1DPS predictions
+  # lapply(sim$spList, FUN = function(sp) {
+  #   spPred <- sim$spPreds1D[[sp]]
+  #   spPred$landForClass <- as.factor(spPred$landForClass)
+  #   spPred$FoLRaster <- as.factor(spPred$FoLRaster)
+  #   spPred$species <- as.factor(spPred$species)
+  # 
+  #   if (requireNamespace("ggplot2")) {
+  #     spPred1DPlot <- spPred |> ggplot2::ggplot(ggplot2::aes(
+  #       x = landForClass,
+  #       y = meanSpDensity,
+  #       fill = landForClass
+  #     )) +
+  #       geom_bar(stat = "identity") +
+  #       geom_errorbar(
+  #         aes(
+  #           ymin = meanSpDensity - seSpDensity,
+  #           ymax = meanSpDensity + seSpDensity
+  #         ),
+  #         width = .5
+  #       ) +
+  #       theme_classic() +
+  #       ggtitle(paste("Mean density predictions for ", sp, sep = "")) +
+  #       xlab("Land or Forest Class") +
+  #       ylab("Mean Predicted Density") +
+  #       theme(
+  #         axis.text.x = element_text(angle = 45, hjust = 1),
+  #         legend.title = element_blank()
+  #       )
+  # 
+  #     clearPlot()
+  #     Plot(spPred1DPlot, title = NULL)
+  #   }
+  # })
+  # 
+  # # Plot 2DPS predictions ####
+  # if (P(sim)$only1DPS == FALSE) {
+  #   lapply(sim$spList, FUN = function(sp) {
+  #     spMatrix <- sim$spPreds$spMatricies[[sp]]
+  # 
+  #     tab <- reshape2::melt(spMatrix)
+  #     colnames(tab) <- c("forClass", "ageClass", "spDensityPred")
+  #     tab$ageClass <- as.factor(tab$ageClass)
+  #     tab$forClass <- as.factor(tab$forClass)
+  #     tab$spDensityPred <- as.numeric(tab$spDensityPred)
+  # 
+  #     if (requireNamespace("ggplot2")) {
+  #       plot2DPredictions <- tab |> ggplot2::ggplot(ggplot2::aes(
+  #         fill = forClass,
+  #         y = spDensityPred,
+  #         x = ageClass
+  #       )) +
+  #         geom_bar(position = "dodge", stat = "identity") +
+  #         facet_grid(~forClass,
+  #           scales = "free"
+  #         ) +
+  #         theme_classic() +
+  #         ggtitle(paste("Predicted density by forest and age class for ", sp, sep = "")) +
+  #         xlab("Forest Age Class") +
+  #         ylab("Predicted sp density") +
+  #         theme(
+  #           strip.background = element_rect(
+  #             color = "white", fill = "white", linewidth = 1.1
+  #           ),
+  #           axis.text.x = element_text(angle = 45, hjust = 1)
+  #         )
+  # 
+  #       clearPlot()
+  #       Plot(plot2DPredictions, title = NULL)
+  #     }
+  #   })
+  # }
 
   print("end PS plotting")
 
@@ -465,7 +465,7 @@ plotFun <- function(sim) {
 ### template for your event1
 do1DPreds <- function(sim) {
   # ! ----- EDIT BELOW ----- ! #
-  sim$spList <- sim$spList[1:4]
+ #sim$spList <- sim$spList[1:4]
   # Make sp datasets ####
   sim$spDatasets <- lapply(X = sim$spList, FUN = function(sp) {
     spLayer <- sim$spRasters[[sp]]
@@ -630,7 +630,7 @@ if(any(is.na(spDataset$weight))){
 spStatsFor <- spStats[spStats$FoLRaster == "forClass"]
     if(any(spStatsFor$classCount < 50)){
       warning("One or more forest class counts low. 2D smoothing may fail. Consider merging/dropping classes.",
-              call. = FALSE, immediate. = TRUE)
+              call. = FALSE, immediate. = FALSE)
     }
 
 spStatsLand <- spStats[spStats$FoLRaster == "landClass"]
@@ -647,7 +647,7 @@ if(any(spStatsLand$classCount < 10)){
 
     return(spStats)
   })
-
+  
   names(sim$spPreds1D) <- sim$spList
 
   # ! ----- STOP EDITING ----- ! #
@@ -745,7 +745,7 @@ map1D <- function(sim) {
       y = raster1DBinsLc
     )
 
-    names(spPredsRaster1D) <- paste(sp)
+    names(spPredsRaster1D) <- paste(sp, "_for1DAndLc1DMap", sep = "")
 
     print(spPredsRaster1D)
     print(paste(sp, "for 1D and lc 1D map complete"))
@@ -754,12 +754,12 @@ map1D <- function(sim) {
   })
 
   names(sim$for1DAndLc1DMaps) <- sim$spList
-
+  
   ### save
   print("save full 1D maps")
   lapply(X = sim$spList, FUN = function(sp) {
     raster <- sim$for1DAndLc1DMaps[[sp]]
-    names(raster) <- paste(sp)
+    names(raster) <- paste(sp, "_for1DAndLc1DMap", sep = "")
     terra::writeRaster(
       x = raster,
       filename = file.path(sim$outputRasLocation, paste(sp, "_for1DAndLc1DMap", sep = "")),
@@ -852,7 +852,7 @@ do2DPreds <- function(sim) {
     ### create hyperparameter grid
     hpGrid <- expand.grid(
       shrinkage = c(0.005, 0.01, 0.1),
-      interaction.depth = c(1, 2),
+      interaction.depth = 2,
       n.minobsinnode = c(5, 10, 30),
       bag.fraction = c(0.5, .65, .8), 
       optimalTrees = 0,
@@ -971,7 +971,7 @@ do2DPreds <- function(sim) {
     matrixName <- paste(sp, "_spPreds2D.csv", sep = "")
     write.csv(spMatrix, file = file.path(outputPredsLocation, matrixName))
     
-    matrixAndSummary <- list(species = sp, spMatricies = spMatrix, statsGBM = statsGBM)
+    matrixAndSummary <- list(species = sp, statsGBM = statsGBM, spMatricies = spMatrix)
     saveRDS(matrixAndSummary, spFile)     # saved immediately, so finished work survives a crash
     
     message(format(Sys.time()), "  DONE   ", sp)
@@ -1027,20 +1027,28 @@ do2DPreds <- function(sim) {
     ### non-parallel option ----
     
    spGBM <- lapply(X = sim$spList, FUN = function(sp) {
+  
+    # matrixAndSummary <- singleSp2DPS(sp = sp,
+    #                                  spDatasets = sim$spDatasets, 
+    #                                  spPredictDT = sim$spPredictDT, 
+    #                                  ageClasses = sim$ageClasses,
+    #                                  nTrees = P(sim)$nTrees,
+    #                                  outputPredsLocation = sim$outputPredsLocation)
     
-    matrixAndSummary <- singleSp2DPS(sp = sp,
-                                     spDatasets = sim$spDatasets, 
-                                     spPredictDT = sim$spPredictDT, 
-                                     ageClasses = sim$ageClasses,
-                                     nTrees = P(sim)$nTrees,
-                                     outputPredsLocation = sim$outputPredsLocation)
     
+     spFile <- file.path(sim$outputPredsLocation, paste0(make.names(sp), ".rds"))
+     matrixAndSummary <- readRDS(spFile)    
+     
     return(matrixAndSummary)
     
    }) 
     names(spGBM) <- sim$spList
     
     }
+  
+  print("spGBM")
+  print(str(spGBM))
+  
   
   ### Separate matricies from stats ####
   #### Species matricies
@@ -1056,9 +1064,10 @@ do2DPreds <- function(sim) {
 
     return(spMatrix)
   })
-
+  
   names(sim$spMatricies) <- sim$spList
  
+  
   ####  GBM Stats
   print("make table of GBM stats")
   statsList <- lapply(X = sim$spList, FUN = function(sp) {
@@ -1073,6 +1082,7 @@ do2DPreds <- function(sim) {
   write.csv(sim$statsGBM, file = file.path(sim$outputPredsLocation, "statsGBM.csv"))
 
   ## Make table defining age classes ####
+  print("ageClassDefs")
   ageClassDefs <- as.data.table(cbind(sim$allAges, sim$ageClasses)) # makes data table that in one column has every age from 0 to max age (or max age class age if bigger), and the corresponding age class in the second column
   names(ageClassDefs) <- c("allAges", "ageClasses")
   # ageClassDefs <- as.data.table(ageClassDefs)
@@ -1080,7 +1090,7 @@ do2DPreds <- function(sim) {
   ### save
   write.csv(sim$ageClassDefs, file = file.path(sim$outputPredsLocation, "ageClassDefs"))
 
-
+ 
   ### Make list of objects for examinePS module
   print("make spPreds object")
   sim$spPreds <- list(sim$spMatricies, sim$spPreds1D, sim$ageClassDefs)
@@ -1107,11 +1117,15 @@ map2D <- function(sim) {
   sim$ageClassRas <- terra::mask(terra::crop(sim$ageClassRas, sim$forClassRas), sim$forClassRas)
   print(sim$ageClassRas) # check
 
+  
+  print("spMatrices")
+  print(sim$spList)
+  print(sim$spmatrices)
   ## Map 2DPS predictions to forest areas ####
   print("Make for2DMaps")
   sim$for2DMaps <- lapply(X = sim$spList, FUN = function(sp) {
-    print(sp)
-browser()
+   tryCatch({
+      print(sp)     
     ### check spatial extent is the same for ageClassraster and forClassraster
     print("extent of forClassRas same as ageClassRas?")
     print(terra::ext(sim$forClassRas) == terra::ext(sim$ageClassRas))
@@ -1122,20 +1136,23 @@ browser()
 
 
     ## Make reclassification tab ####
+    print("spPreds")
+    
     matrix <- sim$spPreds$spMatricies[[sp]]
-print(matrix)
     reclassTab2D <- reproducible::Cache(reshape2::melt, matrix)
-    print(reclassTab2D)
     colnames(reclassTab2D) <- c("forClass", "ageClass", "spDensityPred")
     print(reclassTab2D)
+    #str(reclassTab2D)
+    #class(reclassTab2D)
     reclassTab2D <- as.data.table(reclassTab2D)
     reclassTab2D$forClass <- as.factor(reclassTab2D$forClass)
     reclassTab2D$ageClass <- as.factor(reclassTab2D$ageClass)
 
 
     ## Convert forClassRas and ageClassRas to data frame ####
+    print("as DF")
     rasDF <- as.data.frame(c(sim$forClassRas, sim$ageClassRas), xy = TRUE)
-    print(rasDF)
+    #print(rasDF)
     names(rasDF) <- c("x_coord", "y_coord", "forClass", "ageClass")
 
     ### Add densities from reclassTab
@@ -1146,20 +1163,28 @@ print(matrix)
       type = "xyz",
       crs = terra::crs(sim$forClassRas)
     )
-
+    
     ### check
     terra::compareGeom(raster2DPS, sim$forClassRas, messages = TRUE)
+    names(raster2DPS) <- paste(sp, "_for2DAndLc1DMap", sep = "")
     print(raster2DPS)
 
     return(raster2DPS)
+    
+   },
+   error = function(e) {
+     return(NA)
+   }
+   )
   })
 
   names(sim$for2DMaps) <- sim$spList
 
   ## make 2D map with Land cover areas filled in with 1D predictions ####
   print("get for2DAndLc1DMaps")
-
+ 
   sim$for2DAndLc1DMaps <- lapply(X = sim$spList, FUN = function(sp) {
+    tryCatch({
     print(sp)
     raster1DBins <- sim$lc1DMaps[[sp]]
     raster2DBins <- sim$for2DMaps[[sp]]
@@ -1169,27 +1194,38 @@ print(matrix)
       y = raster1DBins
     )
 
-    names(spPredsRaster) <- paste(sp)
+    
+    names(spPredsRaster) <- paste(sp, "_for2DAndLc1DMap", sep = "")
 
     print(paste(sp, "for 2D and lc 1D map raster complete"))
     return(spPredsRaster)
+  },
+  error = function(e) {
+    return(NA)
+  }
+  )
   })
 
   names(sim$for2DAndLc1DMaps) <- sim$spList
 
   print("save for2DAndLc1DMaps")
-
+  
   ### save
   lapply(X = sim$spList, FUN = function(sp) {
+    tryCatch({
     raster <- sim$for2DAndLc1DMaps[[sp]]
-    names(raster) <- paste(sp)
+    rasName <- paste(sp, "_for2DAndLc1DMap", sep = "")
     terra::writeRaster(
       x = raster,
-      filename = file.path(sim$outputRasLocation, paste(sp, "_for2DAndLc1DMap", sep = "")),
+      filename = file.path(sim$outputRasLocation, rasName),
       filetype = "GTiff",
       gdal = "COMPRESS=NONE",
       overwrite = TRUE
     )
+  },
+  error = function(e) {
+    return(NA)
+  })
   })
 
 
